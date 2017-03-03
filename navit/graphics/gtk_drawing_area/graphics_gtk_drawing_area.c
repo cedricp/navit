@@ -609,7 +609,9 @@ configure(GtkWidget * widget, GdkEventConfigure * event, gpointer user_data)
 		cairo_destroy(gra->cairo);
 	gra->cairo = cairo_create(surface);
 	cairo_surface_destroy(surface);
+#ifdef CAIRO_ANTIALIAS_GOOD
 	cairo_set_antialias (gra->cairo, CAIRO_ANTIALIAS_GOOD);
+#endif
 	callback_list_call_attr_2(gra->cbl, attr_resize, GINT_TO_POINTER(gra->width), GINT_TO_POINTER(gra->height));
 	return TRUE;
 }
