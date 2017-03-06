@@ -41,6 +41,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <errno.h>
+#include <pthread.h>
 
 #define DISPLAY_W 400
 #define DISPLAY_H 400
@@ -139,11 +141,20 @@ struct graphics_image_priv {
     SDL_Surface *img;
 };
 
+struct header{
+    int magic;
+    int w;
+    int h;
+    int size;
+};
+
 static int fifo_fd_c = -1;
 static int fifo_fd_i = -1;
 static int image_updated = 0;
+static int thread_kill = 0;
 static char * nicfifo = "/tmp/navit.command.fifo";
 static char * niififo = "/tmp/navit.image.fifo";
+pthread_t thid;
 
 void make_fifo()
 {
@@ -162,6 +173,45 @@ int close_fifo()
     return 0;
 }
 
+void *image_thread(void *arg) {
+    SDL_Surface *screen = (SDL_Surface *)arg;
+    make_fifo();
+    while(!thread_kill){
+        usleep(5000);
+        if (!image_updated)
+            continue;
+            
+        image_updated = 0;
+        
+        struct header h;
+        h.magic = 0xDEADBEEF;
+        h.w = screen->w;
+        h.h = screen->h;
+        h.size =  screen->w * screen->h * 4;
+        
+        struct stat st;
+        if (!fstat(fifo_fd_i, &st) && !S_ISFIFO(st.st_mode)){
+            if (fifo_fd_i > 0)
+                close(fifo_fd_i);
+            unlink(niififo);
+            make_fifo();
+        }
+       
+        while( write(fifo_fd_i, &h, sizeof(struct header)) < 0 ){
+            make_fifo();
+        }
+        
+        if(errno == EPIPE)
+            make_fifo();
+       
+        write(fifo_fd_i, screen->pixels, h.size);
+        if(errno == EPIPE)
+            make_fifo();
+    }
+
+    pthread_exit(0);
+}
+
 static void
 graphics_destroy(struct graphics_priv *gr)
 {
@@ -177,6 +227,10 @@ graphics_destroy(struct graphics_priv *gr)
 	g_free (ft_buffer);
 	gr->freetype_methods.destroy();
     }
+    
+    thread_kill = 1;
+    int ret;
+    pthread_join(thid, &ret);
     
     close_fifo();
 
@@ -757,13 +811,6 @@ background_gc(struct graphics_priv *gr, struct graphics_gc_priv *gc)
     dbg(lvl_debug, "background_gc\n");
 }
 
-struct header{
-    int magic;
-    int w;
-    int h;
-    int size;
-};
-
 static void
 draw_mode(struct graphics_priv *gr, enum draw_mode_num mode)
 {
@@ -799,21 +846,10 @@ draw_mode(struct graphics_priv *gr, enum draw_mode_num mode)
                     }
                 }
             }
-
-            struct header h;
-            h.magic = 0xDEADBEEF;
-            h.w = gr->screen->w;
-            h.h = gr->screen->h;
-            h.size =  gr->screen->w * gr->screen->h * 4;
-           
-            while( write(fifo_fd_i, &h, sizeof(struct header)) < 0 ){
-                make_fifo();
-            }
-           
-            while( write(fifo_fd_i, gr->screen->pixels, h.size) < 0 ){
-                make_fifo();
-            }
             
+            while(image_updated){
+                usleep(5000);
+            }
             image_updated = 1;
         }
 
@@ -1145,9 +1181,6 @@ graphics_sdl_new(struct navit *nav, struct graphics_methods *meth, struct attr *
     int ret;
     int w=DISPLAY_W,h=DISPLAY_H;
     
-    signal(SIGPIPE, SIG_IGN);
-    make_fifo();
-
     this->nav = nav;
     this->cbl = cbl;
 
@@ -1220,6 +1253,9 @@ graphics_sdl_new(struct navit *nav, struct graphics_methods *meth, struct attr *
         this->aa = attr->u.num;
 
     this->resize_callback_initial=1;
+    
+    pthread_create(&thid, NULL, image_thread, this->screen);
+    
     return this;
 }
 
