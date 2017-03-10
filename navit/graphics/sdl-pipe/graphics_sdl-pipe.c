@@ -181,8 +181,7 @@ void *image_thread(void *arg) {
         if (!image_updated)
             continue;
             
-        image_updated = 0;
-        
+       
         struct header h;
         h.magic = 0xDEADBEEF;
         h.w = screen->w;
@@ -207,6 +206,8 @@ void *image_thread(void *arg) {
         write(fifo_fd_i, screen->pixels, h.size);
         if(errno == EPIPE)
             make_fifo();
+            
+        image_updated = 0;
     }
 
     pthread_exit(0);
@@ -818,6 +819,10 @@ draw_mode(struct graphics_priv *gr, enum draw_mode_num mode)
     SDL_Rect rect;
     int i;
 
+    while(image_updated){
+        usleep(5000);
+    }
+
     if(gr->overlay_mode)
     {
         /* will be drawn below */
@@ -847,9 +852,6 @@ draw_mode(struct graphics_priv *gr, enum draw_mode_num mode)
                 }
             }
             
-            while(image_updated){
-                usleep(5000);
-            }
             image_updated = 1;
         }
 
@@ -1049,31 +1051,24 @@ static gboolean graphics_sdl_idle(void *data)
         gr->resize_callback_initial = 0;
     }
 
-    int count = read(fifo_fd_c, buffer, 127);
-     
-    if (count < 0){
-        fifo_fd_c = -1;
-        return TRUE;
-    }
-   
-    if (count == 0)
-        return TRUE;
-        
-    buffer[count] = 0;
-        
     while(1)
     {
+        int count = read(fifo_fd_c, buffer, 127);
+         
+        if (count < 0){
+            fifo_fd_c = -1;
+            break;
+        }
+       
+        if (count == 0)
+            break;
+            
         int resize = 0;
         int neww, newh;
-        
-        if (image_updated){
-            image_updated = 0;
-        }
 
         if (strncmp("resize", buffer, 6) == 0){
             int scanned = sscanf(buffer, "resize=%ix%i", &neww, &newh);
             if (scanned == 2){
-                printf("resize to %ix%i\n", neww, newh);
                 Uint32 rmask = 0x000000ff;
                 Uint32 gmask = 0x0000ff00;
                 Uint32 bmask = 0x00ff0000;
@@ -1097,7 +1092,6 @@ static gboolean graphics_sdl_idle(void *data)
                 }
                 resize = 0;
             }
-            break;
         }
         
         if (strncmp(buffer, "quit", 4) == 0){
@@ -1133,39 +1127,32 @@ static gboolean graphics_sdl_idle(void *data)
         if (strncmp(buffer, "left", 4) == 0){
             keybuf[0] = NAVIT_KEY_LEFT;
             callback_list_call_attr_1(gr->cbl, attr_keypress, (void *)keybuf);
-            break;
         }
         
         if (strncmp(buffer, "right", 5) == 0){
             keybuf[0] = NAVIT_KEY_RIGHT;
             callback_list_call_attr_1(gr->cbl, attr_keypress, (void *)keybuf);
-            break;
         }
         
         if (strncmp(buffer, "up", 2) == 0){
             keybuf[0] = NAVIT_KEY_UP;
             callback_list_call_attr_1(gr->cbl, attr_keypress, (void *)keybuf);
-            break;
         }
         
         if (strncmp(buffer, "down", 4) == 0){
             keybuf[0] = NAVIT_KEY_DOWN;
             callback_list_call_attr_1(gr->cbl, attr_keypress, (void *)keybuf);
-            break;
         }
         
         if (strncmp(buffer, "zoomin", 6) == 0){
             keybuf[0] = NAVIT_KEY_ZOOM_IN;
             callback_list_call_attr_1(gr->cbl, attr_keypress, (void *)keybuf);
-            break;
         }
         
         if (strncmp(buffer, "zoomout", 7) == 0){
             keybuf[0] = NAVIT_KEY_ZOOM_OUT;
             callback_list_call_attr_1(gr->cbl, attr_keypress, (void *)keybuf);
-            break;
         }
-        break;
     }
 
     return TRUE;
