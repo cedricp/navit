@@ -177,7 +177,7 @@ void *image_thread(void *arg) {
     SDL_Surface *screen = (SDL_Surface *)arg;
     make_fifo();
     while(!thread_kill){
-        usleep(5000);
+        usleep(500);
         if (!image_updated)
             continue;
             
@@ -820,7 +820,7 @@ draw_mode(struct graphics_priv *gr, enum draw_mode_num mode)
     int i;
 
     while(image_updated){
-        usleep(5000);
+        usleep(1000);
     }
 
     if(gr->overlay_mode)
@@ -1051,10 +1051,11 @@ static gboolean graphics_sdl_idle(void *data)
         gr->resize_callback_initial = 0;
     }
 
-    while(1)
+    for(;;)
     {
         int count = read(fifo_fd_c, buffer, 127);
-         
+        int neww, newh;
+        
         if (count < 0){
             fifo_fd_c = -1;
             break;
@@ -1062,9 +1063,6 @@ static gboolean graphics_sdl_idle(void *data)
        
         if (count == 0)
             break;
-            
-        int resize = 0;
-        int neww, newh;
 
         if (strncmp("resize", buffer, 6) == 0){
             int scanned = sscanf(buffer, "resize=%ix%i", &neww, &newh);
@@ -1090,7 +1088,6 @@ static gboolean graphics_sdl_idle(void *data)
                 {
                     callback_list_call_attr_2(gr->cbl, attr_resize, GINT_TO_POINTER(gr->screen->w), GINT_TO_POINTER(gr->screen->h));
                 }
-                resize = 0;
             }
         }
         
