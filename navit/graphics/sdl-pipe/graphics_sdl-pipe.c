@@ -41,8 +41,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <errno.h>
-#include <pthread.h>
 
 #define DISPLAY_W 400
 #define DISPLAY_H 400
@@ -141,20 +139,11 @@ struct graphics_image_priv {
     SDL_Surface *img;
 };
 
-struct header{
-    int magic;
-    int w;
-    int h;
-    int size;
-};
-
 static int fifo_fd_c = -1;
 static int fifo_fd_i = -1;
 static int image_updated = 0;
-static int thread_kill = 0;
 static char * nicfifo = "/tmp/navit.command.fifo";
 static char * niififo = "/tmp/navit.image.fifo";
-pthread_t thid;
 
 void make_fifo()
 {
@@ -173,46 +162,6 @@ int close_fifo()
     return 0;
 }
 
-void *image_thread(void *arg) {
-    SDL_Surface *screen = (SDL_Surface *)arg;
-    make_fifo();
-    while(!thread_kill){
-        usleep(500);
-        if (!image_updated)
-            continue;
-            
-       
-        struct header h;
-        h.magic = 0xDEADBEEF;
-        h.w = screen->w;
-        h.h = screen->h;
-        h.size =  screen->w * screen->h * 4;
-        
-        struct stat st;
-        if (!fstat(fifo_fd_i, &st) && !S_ISFIFO(st.st_mode)){
-            if (fifo_fd_i > 0)
-                close(fifo_fd_i);
-            unlink(niififo);
-            make_fifo();
-        }
-       
-        while( write(fifo_fd_i, &h, sizeof(struct header)) < 0 ){
-            make_fifo();
-        }
-        
-        if(errno == EPIPE)
-            make_fifo();
-       
-        write(fifo_fd_i, screen->pixels, h.size);
-        if(errno == EPIPE)
-            make_fifo();
-            
-        image_updated = 0;
-    }
-
-    pthread_exit(0);
-}
-
 static void
 graphics_destroy(struct graphics_priv *gr)
 {
@@ -228,10 +177,6 @@ graphics_destroy(struct graphics_priv *gr)
 	g_free (ft_buffer);
 	gr->freetype_methods.destroy();
     }
-    
-    thread_kill = 1;
-    int ret;
-    pthread_join(thid, &ret);
     
     close_fifo();
 
@@ -812,16 +757,19 @@ background_gc(struct graphics_priv *gr, struct graphics_gc_priv *gc)
     dbg(lvl_debug, "background_gc\n");
 }
 
+struct header{
+    int magic;
+    int w;
+    int h;
+    int size;
+};
+
 static void
 draw_mode(struct graphics_priv *gr, enum draw_mode_num mode)
 {
     struct graphics_priv *ov;
     SDL_Rect rect;
     int i;
-
-    while(image_updated){
-        usleep(1000);
-    }
 
     if(gr->overlay_mode)
     {
@@ -850,6 +798,20 @@ draw_mode(struct graphics_priv *gr, enum draw_mode_num mode)
                                         gr->screen, &rect);
                     }
                 }
+            }
+
+            struct header h;
+            h.magic = 0xDEADBEEF;
+            h.w = gr->screen->w;
+            h.h = gr->screen->h;
+            h.size =  gr->screen->w * gr->screen->h * 4;
+           
+            while( write(fifo_fd_i, &h, sizeof(struct header)) < 0 ){
+                make_fifo();
+            }
+           
+            while( write(fifo_fd_i, gr->screen->pixels, h.size) < 0 ){
+                make_fifo();
             }
             
             image_updated = 1;
@@ -1028,7 +990,7 @@ overlay_new(struct graphics_priv *gr, struct graphics_methods *meth, struct poin
 static gboolean graphics_sdl_idle(void *data)
 {
     struct graphics_priv *gr = (struct graphics_priv *)data;
-    char buffer[128];
+    char buffer[1024];
     char keybuf[8];
     
     if (fifo_fd_c < 0){
@@ -1051,22 +1013,31 @@ static gboolean graphics_sdl_idle(void *data)
         gr->resize_callback_initial = 0;
     }
 
-    for(;;)
+    int count = read(fifo_fd_c, buffer, 1024);
+     
+    if (count < 0){
+        fifo_fd_c = -1;
+        return TRUE;
+    }
+   
+    if (count == 0)
+        return TRUE;
+        
+    buffer[count] = 0;
+    char *tokens = strtok(buffer, "\n");
+    while(tokens)
     {
-        int count = read(fifo_fd_c, buffer, 127);
+        int resize = 0;
         int neww, newh;
         
-        if (count < 0){
-            fifo_fd_c = -1;
-            break;
+        if (image_updated){
+            image_updated = 0;
         }
-       
-        if (count == 0)
-            break;
 
-        if (strncmp("resize", buffer, 6) == 0){
-            int scanned = sscanf(buffer, "resize=%ix%i", &neww, &newh);
+        if (strncmp("resize", tokens, 6) == 0){
+            int scanned = sscanf(tokens, "resize=%ix%i", &neww, &newh);
             if (scanned == 2){
+                printf("resize to %ix%i\n", neww, newh);
                 Uint32 rmask = 0x000000ff;
                 Uint32 gmask = 0x0000ff00;
                 Uint32 bmask = 0x00ff0000;
@@ -1088,68 +1059,77 @@ static gboolean graphics_sdl_idle(void *data)
                 {
                     callback_list_call_attr_2(gr->cbl, attr_resize, GINT_TO_POINTER(gr->screen->w), GINT_TO_POINTER(gr->screen->h));
                 }
+                resize = 0;
             }
+            break;
         }
         
-        if (strncmp(buffer, "quit", 4) == 0){
+        if (strncmp(tokens, "quit", 4) == 0){
             close_fifo();
             navit_destroy(gr->nav);
             exit(0);
         }
         
-        if (strncmp(buffer, "press", 5) == 0){
+        if (strncmp(tokens, "press", 5) == 0){
             struct point p;
-            int scanned = sscanf(buffer, "press=%i-%i", &p.x, &p.y);
+            int scanned = sscanf(tokens, "press=%i-%i", &p.x, &p.y);
             if (scanned == 2){
                 callback_list_call_attr_3(gr->cbl, attr_button, GINT_TO_POINTER(1), GINT_TO_POINTER(1), (void *)&p);
             }
         }
         
-        if (strncmp(buffer, "move", 4) == 0){
+        if (strncmp(tokens, "move", 4) == 0){
             struct point p;
-            int scanned = sscanf(buffer, "move=%i-%i", &p.x, &p.y);
+            int scanned = sscanf(tokens, "move=%i-%i", &p.x, &p.y);
             if (scanned == 2){
                 callback_list_call_attr_1(gr->cbl, attr_motion, (void *)&p);
             }
         }
         
-        if (strncmp(buffer, "release", 7) == 0){
+        if (strncmp(tokens, "release", 7) == 0){
             struct point p;
-            int scanned = sscanf(buffer, "release=%i-%i", &p.x, &p.y);
+            int scanned = sscanf(tokens, "release=%i-%i", &p.x, &p.y);
             if (scanned == 2){
                 callback_list_call_attr_3(gr->cbl, attr_button, GINT_TO_POINTER(0), GINT_TO_POINTER(1), (void *)&p);
             }
         }
         
-        if (strncmp(buffer, "left", 4) == 0){
+        if (strncmp(tokens, "left", 4) == 0){
             keybuf[0] = NAVIT_KEY_LEFT;
             callback_list_call_attr_1(gr->cbl, attr_keypress, (void *)keybuf);
+            break;
         }
         
-        if (strncmp(buffer, "right", 5) == 0){
+        if (strncmp(tokens, "right", 5) == 0){
             keybuf[0] = NAVIT_KEY_RIGHT;
             callback_list_call_attr_1(gr->cbl, attr_keypress, (void *)keybuf);
+            break;
         }
         
-        if (strncmp(buffer, "up", 2) == 0){
+        if (strncmp(tokens, "up", 2) == 0){
             keybuf[0] = NAVIT_KEY_UP;
             callback_list_call_attr_1(gr->cbl, attr_keypress, (void *)keybuf);
+            break;
         }
         
-        if (strncmp(buffer, "down", 4) == 0){
+        if (strncmp(tokens, "down", 4) == 0){
             keybuf[0] = NAVIT_KEY_DOWN;
             callback_list_call_attr_1(gr->cbl, attr_keypress, (void *)keybuf);
+            break;
         }
         
-        if (strncmp(buffer, "zoomin", 6) == 0){
+        if (strncmp(tokens, "zoomin", 6) == 0){
             keybuf[0] = NAVIT_KEY_ZOOM_IN;
             callback_list_call_attr_1(gr->cbl, attr_keypress, (void *)keybuf);
+            break;
         }
         
-        if (strncmp(buffer, "zoomout", 7) == 0){
+        if (strncmp(tokens, "zoomout", 7) == 0){
             keybuf[0] = NAVIT_KEY_ZOOM_OUT;
             callback_list_call_attr_1(gr->cbl, attr_keypress, (void *)keybuf);
+            break;
         }
+        tokens = strtok(NULL, "\n");
     }
 
     return TRUE;
@@ -1165,6 +1145,9 @@ graphics_sdl_new(struct navit *nav, struct graphics_methods *meth, struct attr *
     int ret;
     int w=DISPLAY_W,h=DISPLAY_H;
     
+    signal(SIGPIPE, SIG_IGN);
+    make_fifo();
+
     this->nav = nav;
     this->cbl = cbl;
 
@@ -1237,16 +1220,13 @@ graphics_sdl_new(struct navit *nav, struct graphics_methods *meth, struct attr *
         this->aa = attr->u.num;
 
     this->resize_callback_initial=1;
-    
-    pthread_create(&thid, NULL, image_thread, this->screen);
-    
     return this;
 }
 
 void
 plugin_init(void)
 {
-    plugin_register_category_graphics("sdl-pipe", graphics_sdl_new);
+    plugin_register_category_graphics("sdl", graphics_sdl_new);
 }
 
 // vim: sw=4 ts=8
