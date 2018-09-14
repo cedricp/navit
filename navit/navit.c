@@ -3499,6 +3499,7 @@ void navit_destroy(struct navit *this_) {
     graphics_displaylist_destroy(this_->displaylist);
 
     graphics_free(this_->gra);
+    plugins_destroy_all();
 
     g_free(this_);
 }

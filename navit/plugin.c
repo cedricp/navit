@@ -127,6 +127,7 @@ struct plugin {
     GModule *mod;
 #endif
     void (*init)(void);
+    void (*destroy)(void*);
 };
 
 struct plugins {
@@ -151,6 +152,7 @@ static struct plugin *plugin_new_from_path(char *plugin) {
 int plugin_load(struct plugin *pl) {
 #ifdef USE_PLUGINS
     gpointer init;
+    gpointer uninit;
 
     GModule *mod;
 
@@ -172,6 +174,11 @@ int plugin_load(struct plugin *pl) {
         pl->mod=mod;
         pl->init=init;
     }
+    if (g_module_symbol(mod, "plugin_uninit", &uninit)) {
+		pl->destroy=uninit;
+	} else {
+		pl->destroy=NULL;
+	}
     return 1;
 #else
     return 0;
@@ -210,7 +217,9 @@ void plugin_call_init(struct plugin *pl) {
 
 void plugin_unload(struct plugin *pl) {
 #ifdef USE_PLUGINS
-    g_module_close(pl->mod);
+	if (pl->destroy)
+		pl->destroy(NULL);
+    //g_module_close(pl->mod);
     pl->mod=NULL;
 #endif
 }
@@ -325,18 +334,21 @@ void plugins_init(struct plugins *pls) {
 }
 
 void plugins_destroy(struct plugins *pls) {
-    GList *l;
-    struct plugin *pl;
+	GList *l;
+	struct plugin *pl;
 
-    l=pls->list;
-    while (l) {
-        pl=l->data;
-        plugin_unload(pl);
-        plugin_destroy(pl);
-    }
-    g_list_free(pls->list);
-    g_hash_table_destroy(pls->hash);
-    g_free(pls);
+	l = pls->list;
+	while (l) {
+		pl=l->data;
+		if (pl){
+			plugin_unload(pl);
+			plugin_destroy(pl);
+		}
+		l = g_list_next(l);
+	}
+	g_list_free(pls->list);
+	g_hash_table_destroy(pls->hash);
+	g_free(pls);
 }
 
 static void *find_by_name(enum plugin_category category, const char *name) {
@@ -391,4 +403,11 @@ void *plugin_get_category(enum plugin_category category, const char *category_na
     g_free(filename);
     g_free(corename);
     return NULL;
+}
+
+void plugins_destroy_all(void)
+{
+	if (!pls)
+		return;
+	plugins_destroy(pls);
 }

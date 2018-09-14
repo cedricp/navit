@@ -38,6 +38,7 @@
 #include "window.h"
 #include "navit/font/freetype/font_freetype.h"
 
+#define MESA_EGL_NO_X11_HEADERS 1
 #include <SDL2/SDL_image.h>
 #include <GLES2/gl2.h>
 #include <EGL/egl.h>

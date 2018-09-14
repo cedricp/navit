@@ -152,6 +152,7 @@ struct attr;
 
 /* prototypes */
 void plugin_init(void);
+void plugin_uninit(void*);
 int plugin_load(struct plugin *pl);
 char *plugin_get_name(struct plugin *pl);
 int plugin_get_active(struct plugin *pl);
@@ -165,6 +166,7 @@ struct plugin *plugin_new(struct attr *parent, struct attr ** attrs);
 void plugins_init(struct plugins *pls);
 void plugins_destroy(struct plugins *pls);
 void *plugin_get_category(enum plugin_category category, const char *category_name, const char *name);
+void plugins_destroy_all();
 /* end of prototypes */
 
 #ifdef __cplusplus

@@ -12,6 +12,7 @@
 		<plugin path="$NAVIT_LIBDIR/autoload/${NAVIT_LIBPREFIX}lib*.so"/>
 		<plugin path="$NAVIT_LIBDIR/*/${NAVIT_LIBPREFIX}libbinding_dbus.so" active="no"/>
 		<plugin path="$NAVIT_LIBDIR/*/${NAVIT_LIBPREFIX}libgraphics_null.so" active="no"/>
+		<plugin path="$NAVIT_LIBDIR/*/${NAVIT_LIBPREFIX}/libplugin_j1850.so" active="yes"/>
 	</plugins>
 
 	<!-- The global debug level (like using command line option "-d"). Ignored if option -d is used. -->
@@ -36,7 +37,7 @@
 	<navit center="11.5666 48.1333" zoom="256" tracking="1" orientation="-1" recent_dest="250" drag_bitmap="0">
 		<!-- Use one of gtk_drawing_area, qt_qpainter or sdl.
 		     On windows systems, use win32 -->
-		<graphics type="gtk_drawing_area"/>
+		<graphics type="sdl" w="800" h="480"/>
 		<!-- The following line let you select which graphical user interface you'd like to use.
 		Options include internal (optimized for touch screen devices), gtk (useful for desktop computers).
 		If you don't like the internal gui, set enabled=yes for the following tag and enabled=no for the gui internal tag -->
@@ -170,7 +171,13 @@ Waypoint</text></img>
 		You can find a list of all the available OSDs items here:
 		http://wiki.navit-project.org/index.php/OSD -->
 		<osd enabled="no" type="compass"/>
-		<osd enabled="no" type="navigation_next_turn"/>
+		<osd enabled="yes" type="odometer"/>
+		<osd enabled="no" type="volume" x="30" y="30"/>
+		<osd enabled="yes" type="j1850" x="30" y="100"/>
+		<osd enabled="yes" type="navigation_next_turn"/> 
+		<osd enabled="yes" type="speed_cam"/> 
+		<osd enabled="yes" type="speed_warner"/> 
+        <osd enabled="yes" type="toggle_announcer"/>
 
 		<!-- Commands include gui_internal_menu, gui_internal_fullscreen, zoom_in and zoom_out.
 			Usage of negative values change the button origins. x="0" y="0" specifies the top left, x="-0" y="-0" the bottom right corner.
