@@ -285,13 +285,12 @@ osd_j1850_draw(struct j1850 *this, struct navit *nav,
 	osd_fill_with_bgcolor(&this->osd_item);
     struct point p, bbox[4];
 
-    graphics_get_text_bbox(this->osd_item.gr, this->osd_item.font, "OSD PLUGIN"/*this->message*/, 0x10000, 0, bbox, 0);
+    graphics_get_text_bbox(this->osd_item.gr, this->osd_item.font, "OSD PLUGIN", 0x10000, 0, bbox, 0);
     p.x=(this->osd_item.w-bbox[2].x)/2;
-    p.y = this->osd_item.h-this->osd_item.h/10;
+    p.y = this->osd_item.h-this->osd_item.h/2;
 
     struct graphics_gc *curr_color = this->white;
-    // online? use  this->bActive?this->white:this->orange;
-    graphics_draw_text(this->osd_item.gr, curr_color, NULL, this->osd_item.font, "OSD PLUGIN"/*this->message*/, &p, 0x10000, 0);
+    graphics_draw_text(this->osd_item.gr, curr_color, NULL, this->osd_item.font, "OSD PLUGIN", &p, 0x10000, 0);
     graphics_draw_mode(this->osd_item.gr, draw_mode_end);
 }
 
@@ -325,15 +324,15 @@ osd_j1850_init(struct j1850 *this, struct navit *nav)
     // Used when we are receiving real datas from the device
     this->bg = graphics_gc_new(this->osd_item.gr);
     this->white = graphics_gc_new(this->osd_item.gr);
-    c.r = 65535;
+    c.r = 32768;
     c.g = 65535;
-    c.b = 65535;
+    c.b = 32768;
     c.a = 65535;
     graphics_gc_set_foreground(this->white, &c);
     graphics_gc_set_linewidth(this->white, this->width);
     c.r = 0x0000;
-    c.g = 0x0500;
-    c.b = 0xFFFF;
+    c.g = 0x0000;
+    c.b = 0x0000;
     c.a = 65535;
     graphics_gc_set_background(this->bg, &c);
 
@@ -484,16 +483,13 @@ osd_j1850_new(struct navit *nav, struct osd_methods *meth,
     dbg(lvl_error,"Will log to %s\n", this->filename);
     this->init_string_index=0;
     struct attr *attr;
-    this->osd_item.p.x = 120;
-    this->osd_item.p.y = 20;
-    this->osd_item.w = 160;
-    this->osd_item.h = 20;
-    this->osd_item.rel_x = 20;
-    this->osd_item.rel_y = -80;
-    this->osd_item.rel_w = 60;
-    this->osd_item.rel_h = 40;
+    this->osd_item.rel_x = 0;
+    this->osd_item.rel_y = 0;
+    this->osd_item.rel_w = 120;
+    this->osd_item.rel_h = 480;
     this->osd_item.navit = nav;
-    this->osd_item.font_size = 200;
+    this->osd_item.font_size = 250;
+    this->osd_item.font_name =
     this->osd_item.meth.draw = osd_draw_cast(osd_j1850_draw);
 
     osd_set_std_attr(attrs, &this->osd_item, 2);

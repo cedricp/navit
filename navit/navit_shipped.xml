@@ -34,10 +34,10 @@
 		Center coordinates format: "Long Lat" in decimal degrees (WGS 84).
 		For other formats see http://wiki.navit-project.org/index.php/Coordinate_format.
 		-->
-	<navit center="11.5666 48.1333" zoom="256" tracking="1" orientation="-1" recent_dest="250" drag_bitmap="0">
+	<navit center="11.5666 48.1333" zoom="16" autozoom_active="1" follow_cursor="1" tracking="1" orientation="-1" recent_dest="250" drag_bitmap="0" >
 		<!-- Use one of gtk_drawing_area, qt_qpainter or sdl.
 		     On windows systems, use win32 -->
-		<graphics type="sdl" w="800" h="480"/>
+		<graphics type="sdl" w="640" h="480"/>
 		<!-- The following line let you select which graphical user interface you'd like to use.
 		Options include internal (optimized for touch screen devices), gtk (useful for desktop computers).
 		If you don't like the internal gui, set enabled=yes for the following tag and enabled=no for the gui internal tag -->
@@ -170,15 +170,16 @@ Waypoint</text></img>
 		<!-- osd items allow to position display and control items directly on top of the map.
 		You can find a list of all the available OSDs items here:
 		http://wiki.navit-project.org/index.php/OSD -->
-		<osd enabled="no" type="compass"/>
+		<osd enabled="yes" type="compass" x="580" y="0"/>
 		<osd enabled="yes" type="odometer"/>
+		<osd enabled="yes" type="j1850"/>
+		<osd enabled="yes" type="navigation_next_turn" x="580" y="80"/> 
+		<osd enabled="yes" type="speed_cam" x="580" y="120"/> 
+		<osd enabled="yes" type="speed_warner" x="580" y="150"/> 
+		<osd enabled="yes" type="navigation_status" x="580" y="210" w="60" h="60"/> 
+        <osd enabled="yes" type="toggle_announcer" x="580" y="270"/>
 		<osd enabled="no" type="volume" x="30" y="30"/>
-		<osd enabled="yes" type="j1850" x="30" y="100"/>
-		<osd enabled="yes" type="navigation_next_turn"/> 
-		<osd enabled="yes" type="speed_cam"/> 
-		<osd enabled="yes" type="speed_warner"/> 
-        <osd enabled="yes" type="toggle_announcer"/>
-
+		
 		<!-- Commands include gui_internal_menu, gui_internal_fullscreen, zoom_in and zoom_out.
 			Usage of negative values change the button origins. x="0" y="0" specifies the top left, x="-0" y="-0" the bottom right corner.
 			It's always the top left corner of the icon, so you need to consider the icon's size when you enter the values. -->
@@ -200,7 +201,7 @@ Waypoint</text></img>
 		<!-- For SDL, you should add follow="1" to have the view centered on your position -->
 		<!-- <vehicle name="Meins" enabled="yes" source="gpsd://localhost" color="#0000ff" follow="1"/> -->
 
-		<vehicle name="Demo" profilename="car" enabled="no" source="demo://"/>
+		<vehicle name="Megane CC" profilename="car" enabled="yes" follow="1" source="demo://"/>
 
 		<!-- For the cumulative displacement filter to be enabled, set cdf_histsize="x" here, with x being an integer somewhere around 4 -->
 		<tracking cdf_histsize="0"/>
@@ -384,7 +385,7 @@ Waypoint</text></img>
 		<!-- Navit provides speech output in text format.
 			If you have a speech synthesizer like festival lite installed, you can get turn by turn directions out of navit. Please set the "cps"-value to how many characters your tts engine approximately speaks per second.
 			The default is text output to the shell -->
-		<speech type="cmdline" data="echo 'Fix the speech tag in navit.xml to let navit say:' '%s'" cps="15"/>
+		<speech type="cmdline" data="/home/cedric/Desktop/Documents/picolinux-master/tts/tts2raw -a -l fra '%s'" cps="15"/>
 		<!--
 		Instead of using a speech synthesizer, navit can also play pre-recorded samples for each word.
 		See http://wiki.navit-project.org/index.php/Configuration for details.
