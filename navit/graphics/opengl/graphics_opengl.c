@@ -162,7 +162,7 @@ struct graphics_priv {
     time_t last_refresh_time;	//last display refresh time
     struct graphics_opengl_window_system *window_system;
     struct graphics_opengl_window_system_methods *window_system_methods;
-    struct graphics_opengl_platform *platform;
+    struct graphics_gles_platform *platform;
     struct graphics_opengl_platform_methods *platform_methods;
 };
 

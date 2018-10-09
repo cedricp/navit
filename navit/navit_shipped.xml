@@ -12,7 +12,7 @@
 		<plugin path="$NAVIT_LIBDIR/autoload/${NAVIT_LIBPREFIX}lib*.so"/>
 		<plugin path="$NAVIT_LIBDIR/*/${NAVIT_LIBPREFIX}libbinding_dbus.so" active="no"/>
 		<plugin path="$NAVIT_LIBDIR/*/${NAVIT_LIBPREFIX}libgraphics_null.so" active="no"/>
-		<plugin path="$NAVIT_LIBDIR/*/${NAVIT_LIBPREFIX}/libplugin_j1850.so" active="yes"/>
+		<plugin path="$NAVIT_LIBDIR/*/${NAVIT_LIBPREFIX}/libplugin_ecu_monitor.so" active="yes"/>
 	</plugins>
 
 	<!-- The global debug level (like using command line option "-d"). Ignored if option -d is used. -->
@@ -170,10 +170,10 @@ Waypoint</text></img>
 		<!-- osd items allow to position display and control items directly on top of the map.
 		You can find a list of all the available OSDs items here:
 		http://wiki.navit-project.org/index.php/OSD -->
-		<osd enabled="yes" type="compass" x="580" y="0"/>
+		<osd enabled="yes" type="compass" x="570" y="0" w="70"/>
 		<osd enabled="yes" type="odometer"/>
-		<osd enabled="yes" type="j1850"/>
-		<osd enabled="yes" type="navigation_next_turn" x="580" y="80"/> 
+		<osd enabled="yes" type="ecu_monitor"/>
+		<osd enabled="yes" type="navigation_next_turn" x="570" y="80"/> 
 		<osd enabled="yes" type="speed_cam" x="580" y="120"/> 
 		<osd enabled="yes" type="speed_warner" x="580" y="150"/> 
 		<osd enabled="yes" type="navigation_status" x="580" y="210" w="60" h="60"/> 

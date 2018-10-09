@@ -489,7 +489,7 @@ osd_j1850_new(struct navit *nav, struct osd_methods *meth,
     this->osd_item.rel_h = 480;
     this->osd_item.navit = nav;
     this->osd_item.font_size = 250;
-    this->osd_item.font_name =
+    //this->osd_item.font_name = "";
     this->osd_item.meth.draw = osd_draw_cast(osd_j1850_draw);
 
     osd_set_std_attr(attrs, &this->osd_item, 2);

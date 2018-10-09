@@ -1,5 +1,5 @@
 struct graphics_opengl_window_system;
-struct graphics_opengl_platform;
+struct graphics_gles_platform;
 
 
 struct graphics_opengl_window_system_methods {
@@ -10,9 +10,9 @@ struct graphics_opengl_window_system_methods {
 };
 
 struct graphics_opengl_platform_methods {
-	void (*destroy)(struct graphics_opengl_platform *);
-	void (*swap_buffers)(struct graphics_opengl_platform *);
+	void (*destroy)(struct graphics_gles_platform *);
+	void (*swap_buffers)(struct graphics_gles_platform *);
 };
 
 struct graphics_opengl_window_system *graphics_opengl_x11_new(void *displayname, int w, int h, int depth, struct graphics_opengl_window_system_methods **methods);
-struct graphics_opengl_platform *graphics_opengl_egl_new(void *display, void *window, struct graphics_opengl_platform_methods **methods);
+struct graphics_gles_platform *graphics_opengl_egl_new(void *display, void *window, struct graphics_opengl_platform_methods **methods);

@@ -190,6 +190,13 @@ if (NOT DISABLE_QT)
 	endif (Qt5Widgets_FOUND OR Qt5Quick_FOUND OR Qt5Sensors_FOUND)
 endif (NOT DISABLE_QT)
 
+if (NO_GLES_X11)
+	add_definitions ("-DNO_GLES_X11")
+	set (GLES_X11_STATUS "FALSE")
+else()
+	set (GLES_X11_STATUS "TRUE")
+endif (NO_GLES_X11)
+
 #pkg-config based detection
 find_package(PkgConfig)
 if(PKG_CONFIG_FOUND)
@@ -418,6 +425,7 @@ endif(SDL_FOUND AND SDLIMAGE_FOUND AND FREETYPE_FOUND)
 if(SDL2MAIN AND SDL2IMAGE AND GLES2)
 	set_with_reason(graphics/egl "SDL2/SDL2_image libs found" TRUE ${SDL2MAIN} ${SDL2IMAGE} ${GLES2})
 	message(STATUS "EGL libs found : ${SDL2MAIN} ${SDL2IMAGE} ${GLES2}")
+	message (STATUS "GLES on X11: ${GLES_X11_STATUS}")
 endif(SDL2MAIN AND SDL2IMAGE AND GLES2)
 
 if (LIBGPS_FOUND)
@@ -495,7 +503,8 @@ add_module(map/csv "Default" TRUE)
 
 #Modules without test yet
 add_module(plugin/pedestrian "Default" FALSE)
-add_module(plugin/j1850 "Default" TRUE)
+add_module(plugin/j1850 "Default" FALSE)
+add_module(plugin/ecu_monitor "Default" TRUE)
 add_module(speech/android "Default" FALSE)
 add_module(speech/espeak "Default" FALSE)
 add_module(speech/iphone "Default" FALSE)

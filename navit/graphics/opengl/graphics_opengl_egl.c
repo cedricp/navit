@@ -10,7 +10,7 @@
 #include "graphics_opengl.h"
 #include "debug.h"
 
-struct graphics_opengl_platform {
+struct graphics_gles_platform {
     EGLSurface eglwindow;
     EGLDisplay egldisplay;
     EGLConfig config[1];
@@ -34,11 +34,11 @@ EGLint aEGLContextAttributes[] = {
     EGL_NONE
 };
 
-static void graphics_opengl_egl_destroy(struct graphics_opengl_platform *egl) {
+static void graphics_opengl_egl_destroy(struct graphics_gles_platform *egl) {
     g_free(egl);
 }
 
-static void graphics_opengl_egl_swap_buffers(struct graphics_opengl_platform *egl) {
+static void graphics_opengl_egl_swap_buffers(struct graphics_gles_platform *egl) {
     eglSwapBuffers(egl->egldisplay, egl->eglwindow);
 }
 
@@ -48,9 +48,9 @@ struct graphics_opengl_platform_methods graphics_opengl_egl_methods = {
 };
 
 
-struct graphics_opengl_platform *
+struct graphics_gles_platform *
 graphics_opengl_egl_new(void *display, void *window, struct graphics_opengl_platform_methods **methods) {
-    struct graphics_opengl_platform *ret=g_new0(struct graphics_opengl_platform,1);
+    struct graphics_gles_platform *ret=g_new0(struct graphics_gles_platform,1);
     EGLint major,minor,nconfig;
 
     *methods=&graphics_opengl_egl_methods;

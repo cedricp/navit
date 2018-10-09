@@ -1099,6 +1099,13 @@ int graphics_hide_native_keyboard (struct graphics *this_, struct graphics_keybo
     return 1;
 }
 
+void graphics_push_event(struct graphics *this_, const char* event_name){
+	if (!this_->meth.push_event)
+	        return;
+	    this_->meth.push_event(this_->priv, event_name);
+	    return;
+}
+
 #include "attr.h"
 #include "popup.h"
 #include <stdio.h>

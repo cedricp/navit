@@ -791,6 +791,18 @@ static void draw_drag(struct graphics_priv *gr, struct point *p) {
     }
 }
 
+static void
+handle_event(struct graphics_priv *gr, const char* event_name)
+{
+	SDL_Event event;
+	SDL_memset(&event, 0, sizeof(event)); /* or SDL_zero(event) */
+	event.type = SDL_USEREVENT;
+	event.user.code = 0;
+	event.user.data1 = event_name;
+	event.user.data2 = 0;
+	SDL_PushEvent(&event);
+}
+
 static struct graphics_methods graphics_methods = {
     graphics_destroy,
     draw_mode,
@@ -815,6 +827,7 @@ static struct graphics_methods graphics_methods = {
     NULL, /* set_attr */
     NULL, /* show_native_keyboard */
     NULL, /* hide_native_keyboard */
+	handle_event,
 };
 
 static struct graphics_priv *overlay_new(struct graphics_priv *gr, struct graphics_methods *meth, struct point *p, int w, int h,int wraparound) {
@@ -1182,6 +1195,13 @@ static gboolean graphics_sdl_idle(void *data) {
             break;
         }
 
+        case SDL_USEREVENT :
+        	if (strcmp((const char*)ev.user.data1, "redraw") == 0){
+                navit_draw(gr->nav);
+        	}
+
+            break;
+
         case SDL_VIDEORESIZE: {
 
             gr->screen = SDL_SetVideoMode(ev.resize.w, ev.resize.h, gr->video_bpp, gr->video_flags);
@@ -1420,6 +1440,7 @@ static struct graphics_priv *graphics_sdl_new(struct navit *nav, struct graphics
         this->aa = attr->u.num;
 
     this->resize_callback_initial=1;
+
     return this;
 }
 

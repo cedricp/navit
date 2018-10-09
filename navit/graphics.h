@@ -151,6 +151,7 @@ struct graphics_methods {
 	int (*set_attr)(struct graphics_priv *gr, struct attr *attr);
 	int (*show_native_keyboard)(struct graphics_keyboard *kbd);
 	void (*hide_native_keyboard)(struct graphics_keyboard *kbd);
+	void (*push_event)(struct graphics_priv* gr, const char* event_name);
 };
 
 
@@ -284,6 +285,7 @@ int graphics_show_native_keyboard (struct graphics *this_, struct graphics_keybo
 int graphics_hide_native_keyboard (struct graphics *this_, struct graphics_keyboard *kbd);
 void graphics_draw_polygon_clipped(struct graphics *gra, struct graphics_gc *gc, struct point *pin, int count_in);
 void graphics_draw_polyline_clipped(struct graphics *gra, struct graphics_gc *gc, struct point *pa, int count, int *width, int poly);
+void graphics_push_event(struct graphics *this_, const char* event_name);
 
 /* end of prototypes */
 #ifdef __cplusplus
