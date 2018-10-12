@@ -38,7 +38,7 @@ mutex_unlock(struct thread_data* tdata){
 	pthread_mutex_unlock(&tdata->mutex);
 }
 
-inline void
+static inline void
 extract_dashboard_data(struct thread_data* tdata)
 {
 	struct candata* cdata = tdata->can_data;
@@ -51,7 +51,7 @@ extract_dashboard_data(struct thread_data* tdata)
 	mutex_unlock(tdata);
 }
 
-inline void
+static inline void
 extract_brake_data(struct thread_data* tdata)
 {
 	struct candata* cdata = tdata->can_data;
@@ -62,14 +62,110 @@ extract_brake_data(struct thread_data* tdata)
 	mutex_unlock(tdata);
 }
 
+static inline void
+extract_engine_data(struct thread_data* tdata)
+{
+	struct candata* cdata = tdata->can_data;
+	uint8_t* frame = cdata->frame.data;
+
+	mutex_lock(tdata);
+	tdata->engine_water_temp = frame[0] - 40;
+	tdata->limiter_speed_value = frame[4];
+
+	uint8_t cruise_control_status = (frame[5] & 0b01110000) >> 4;
+	if (cruise_control_status == 0){
+		tdata->cruise_control_on = 0;
+		tdata->speed_limiter_on  = 0;
+	} else if (cruise_control_status == 0b00000001){
+		tdata->speed_limiter_on  = 1;
+	} else if (cruise_control_status == 0b00000100){
+		tdata->cruise_control_on = 1;
+	}
+
+	if (tdata->last_ecm_timestamp == 0){
+		/*
+		 * First init
+		 */
+		tdata->last_ecm_timestamp = timeval_to_millis(&tdata->can_data->laststamp);
+		tdata->last_ecm_fuel_accum = frame[1];
+		goto unlock_and_quit;
+	}
+
+	uint64_t last_ecm_timestamp = tdata->last_ecm_timestamp;
+	uint64_t new_ecm_timestamp = timeval_to_millis(&tdata->can_data->laststamp);
+	tdata->last_ecm_timestamp = new_ecm_timestamp;
+	uint32_t delta_time_ms = new_ecm_timestamp - last_ecm_timestamp;
+
+	uint8_t current_fuel_accum = frame[1] - tdata->last_ecm_fuel_accum;
+	tdata->last_ecm_fuel_accum = frame[1];
+	tdata->fuel_accum += current_fuel_accum;
+
+	tdata->fuel_accum_time += delta_time_ms;
+
+	if (tdata->fuel_accum_time > 300){
+        float seconds = (float)tdata->fuel_accum_time * 0.001f;
+        float mm3 = tdata->fuel_accum * 80.f;
+        float mm3perheour = (mm3 / seconds) * 3600.f;
+        float dm3perhour = mm3perheour * 0.000001f;
+        tdata->fuel_accum_time = 0;
+        tdata->fuel_accum = 0;
+
+		// vehicle_speed is in Km/h * 100
+		tdata->instant_fuel_consumption_per_100_km = (dm3perhour * 10000.f) / ((float) tdata->vehicle_speed);
+		tdata->instant_fuel_consumption_liter_per_hour = dm3perhour;
+	}
+unlock_and_quit:
+	mutex_unlock(tdata);
+}
+
+static inline void
+extract_engine_torque_data(struct thread_data* tdata)
+{
+	struct candata* cdata = tdata->can_data;
+	uint8_t* frame = cdata->frame.data;
+
+	mutex_lock(tdata);
+	tdata->engine_rpm = (frame[0] << 8) | frame[1];
+	mutex_unlock(tdata);
+}
+
+static inline void
+extract_bcm_general_data(struct thread_data* tdata)
+{
+	struct candata* cdata = tdata->can_data;
+	uint8_t* frame = cdata->frame.data;
+
+	mutex_lock(tdata);
+	tdata->boot_lock_status = frame[2] & 0b00001000;
+	tdata->door_lock_status = frame[2] & 0b00010000;
+	tdata->left_door_open   = frame[0] & 0b00001000;
+	tdata->right_door_open  = frame[0] & 0b00010000;
+	tdata->boot_open        = frame[0] & 0b10000000;
+	tdata->external_temperature = frame[4] - 40;
+	mutex_unlock(tdata);
+}
+
+static inline void
+extract_upc_data(struct thread_data* tdata)
+{
+	struct candata* cdata = tdata->can_data;
+	uint8_t* frame = cdata->frame.data;
+
+	mutex_lock(tdata);
+	tdata->battery_voltage = (float)frame[2] * 0.0625;
+	tdata->battery_charge_status = frame[3] & 0b00100000;
+	mutex_unlock(tdata);
+}
+
 static void*
 can_thread_function(void* data)
 {
+	int retcode;
 	printf("Thread Start\n");
 	for(;;){
 		struct thread_data* tdata = data;
-
-		if (read_frame(tdata->can_data, 500) == 0){
+		retcode =read_frame(tdata->can_data, 500);
+		if ( retcode == 0 ){
 			/*
 			 * We've got our CAN data now
 			 * Let's extract the content
@@ -80,20 +176,25 @@ can_thread_function(void* data)
 				extract_dashboard_data(tdata);
 				break;
 			case 0x060D:
-
+				extract_bcm_general_data(tdata);
 				break;
 			case 0x0181:
-
+				extract_engine_torque_data(tdata);
 				break;
 			case 0x0551:
-
+				extract_engine_data(tdata);
 				break;
 			case 0x0354:
 				extract_brake_data(tdata);
 				break;
+			case 0x0625:
+				extract_upc_data(tdata);
+				break;
 			default:
 				break;
 			}
+		} else {
+			printf("Can thread read error : %i\n", retcode);
 		}
 
 		// Use this to force redraw
@@ -120,7 +221,13 @@ create_can_thread(const char* can_ifname, struct navit* nav)
 	tdata->nav = nav;
 	tdata->running = 1;
 
-	/* Set filters */
+	tdata->fuel_accum = tdata->fuel_accum_time = 0;
+	tdata->last_ecm_timestamp = tdata->last_ecm_fuel_accum = 0;
+	tdata->limiter_speed_value = 0;
+
+	/*
+	 * Set filters to avoid too much network traffic
+	 */
 	tdata->can_data->numfilters = 5;
 
 	tdata->can_data->filters[0] = 0x060D;
@@ -137,6 +244,9 @@ create_can_thread(const char* can_ifname, struct navit* nav)
 
 	tdata->can_data->filters[4] = 0x0354;
 	tdata->can_data->masks[4] 	= 0x07FF;
+
+	tdata->can_data->filters[5] = 0x0625;
+	tdata->can_data->masks[5] 	= 0x07FF;
 
 	/*
 	 * Create MUTEX

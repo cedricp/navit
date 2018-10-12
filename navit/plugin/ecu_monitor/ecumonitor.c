@@ -74,6 +74,9 @@ struct ecumonitor {
     int map;
     int tank_level;
     int odo;
+
+    struct graphics_image *img_speed_limiter;
+
     struct thread_data* can_thread_data;
 };
 
@@ -101,26 +104,35 @@ static void
 osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
         struct vehicle *v)
 {
-	osd_fill_with_bgcolor(&this->osd_item);
-    struct point p, bbox[4];
+    struct point p;
+    struct point bbox[4];
+    char string_buffer[32];
 
-    graphics_get_text_bbox(this->osd_item.gr, this->osd_item.font, "OSD PLUGIN", 0x10000, 0, bbox, 0);
-    p.x=(this->osd_item.w-bbox[2].x)/2;
-    p.y = this->osd_item.h-this->osd_item.h/2;
+	osd_fill_with_bgcolor(&this->osd_item);
+
+	/*
+	 * Limiter view
+	 */
+	sprintf(string_buffer, "%i Km/h", this->can_thread_data->limiter_speed_value);
+    graphics_get_text_bbox(this->osd_item.gr, this->osd_item.font, string_buffer, 0x10000, 0, bbox, 0);
+    p.x = 55;
+    p.y = 40;
 
     struct graphics_gc *curr_color = this->white;
-    graphics_draw_text(this->osd_item.gr, curr_color, NULL, this->osd_item.font, "OSD PLUGIN", &p, 0x10000, 0);
+    graphics_draw_text(this->osd_item.gr, curr_color, NULL, this->osd_item.font, string_buffer, &p, 0x10000, 0);
     graphics_draw_mode(this->osd_item.gr, draw_mode_end);
+
+    p.x=5;
+    p.y=10;
+    graphics_draw_image(this->osd_item.gr, this->white, &p, this->img_speed_limiter);
+
+    /*
+     *
+     */
 }
 
 /**
  * @brief	Initialize the ecu_monitor OSD
- * @param[in]	ecu_monitor	- the ecu_monitor struct containing the state of the plugin
- *              nav     - the navit object
- *
- * @return	nothing
- *
- * Initialize the ecu_monitor OSD
  *
  */
 static void
@@ -149,6 +161,9 @@ osd_ecu_monitor_init(struct ecumonitor *this, struct navit *nav)
 
     event_add_timeout(500, 1, callback_new_1(callback_cast(osd_ecu_monitor_draw), this));
 
+    char *src = graphics_icon_path("speed_limiter_48_48.png");
+    this->img_speed_limiter = graphics_image_new(this->osd_item.gr, src);
+
     osd_ecu_monitor_draw(this, nav, NULL);
     this->callback=callback_new_1(callback_cast(ecu_monitor_idle), this);
     this->idle=event_add_idle(125, this->callback);
@@ -156,13 +171,6 @@ osd_ecu_monitor_init(struct ecumonitor *this, struct navit *nav)
 
 /**
  * @brief	Creates the ecu_monitor OSD and set some default properties
- * @param[in]	nav	- the navit object
- *              meth    - the osd_methods
- * 		attrs	- pointer to the attributes
- *
- * @return	nothing
- *
- * Creates the ecu_monitor OSD and set some default properties
  *
  */
 static struct osd_priv *
@@ -184,12 +192,13 @@ osd_ecu_monitor_new(struct navit *nav, struct osd_methods *meth,
     this->osd_item.rel_h = 480;
     this->osd_item.navit = nav;
     this->osd_item.font_size = 250;
-    //this->osd_item.font_name =
+    //this->osd_item.font_name = "6809 Chargen";
     this->osd_item.meth.draw = osd_draw_cast(osd_ecu_monitor_draw);
 
     osd_set_std_attr(attrs, &this->osd_item, 2);
     attr = attr_search(attrs, NULL, attr_width);
     this->width=attr ? attr->u.num : 2;
+
     navit_add_callback(nav, callback_new_attr_1(callback_cast(osd_ecu_monitor_init), attr_graphics_ready, this));
 
     this->can_thread_data = create_can_thread("can0", nav);

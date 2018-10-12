@@ -20,11 +20,10 @@
 int
 open_can(struct candata* can, int socket_type, int protocol)
 {
-    can->fd = -1;
-    const int fd = socket(PF_CAN, socket_type, protocol);
-    if (fd >= 0)
+	can->fd = socket(PF_CAN, socket_type, protocol);
+    if (can->fd >= 0)
     	return 0;
-    can->fd = fd;
+    can->fd = -1;
     return -1;
 }
 
