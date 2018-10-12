@@ -65,7 +65,7 @@ struct ecumonitor {
     struct callback *callback;
     struct osd_item osd_item;
     int width;
-    struct graphics_gc *orange,*white,* bg;
+    struct graphics_gc *red_color,*white_color,* bg;
     struct callback *click_cb;
     int init_string_index;
 
@@ -109,22 +109,21 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
     char string_buffer[32];
 
 	osd_fill_with_bgcolor(&this->osd_item);
-
 	/*
 	 * Limiter view
 	 */
 	sprintf(string_buffer, "%i Km/h", this->can_thread_data->limiter_speed_value);
     graphics_get_text_bbox(this->osd_item.gr, this->osd_item.font, string_buffer, 0x10000, 0, bbox, 0);
-    p.x = 55;
+    p.x = 65;
     p.y = 40;
 
-    struct graphics_gc *curr_color = this->white;
-    graphics_draw_text(this->osd_item.gr, curr_color, NULL, this->osd_item.font, string_buffer, &p, 0x10000, 0);
+    struct graphics_gc *white_color = this->white_color;
+    graphics_draw_text(this->osd_item.gr, white_color, NULL, this->osd_item.font, string_buffer, &p, 0x10000, 0);
     graphics_draw_mode(this->osd_item.gr, draw_mode_end);
 
     p.x=5;
     p.y=10;
-    graphics_draw_image(this->osd_item.gr, this->white, &p, this->img_speed_limiter);
+    graphics_draw_image(this->osd_item.gr, white_color, &p, this->img_speed_limiter);
 
     /*
      *
@@ -144,19 +143,24 @@ osd_ecu_monitor_init(struct ecumonitor *this, struct navit *nav)
     
     // Used when we are receiving real datas from the device
     this->bg = graphics_gc_new(this->osd_item.gr);
-    this->white = graphics_gc_new(this->osd_item.gr);
-    c.r = 32768;
+    this->white_color = graphics_gc_new(this->osd_item.gr);
+    this->red_color = graphics_gc_new(this->osd_item.gr);
+    c.r = 65535;
     c.g = 65535;
-    c.b = 32768;
+    c.b = 65535;
     c.a = 65535;
-    graphics_gc_set_foreground(this->white, &c);
-    graphics_gc_set_linewidth(this->white, this->width);
+    graphics_gc_set_foreground(this->white_color, &c);
+    graphics_gc_set_linewidth(this->white_color, this->width);
     c.r = 0x0000;
     c.g = 0x0000;
     c.b = 0x0000;
     c.a = 65535;
     graphics_gc_set_background(this->bg, &c);
-
+    c.r = 0xFFFF;
+    c.g = 0x0000;
+    c.b = 0x0000;
+    c.a = 65535;
+    graphics_gc_set_foreground(this->red_color, &c);
     graphics_gc_set_linewidth(this->osd_item.graphic_fg, this->width);
 
     event_add_timeout(500, 1, callback_new_1(callback_cast(osd_ecu_monitor_draw), this));
@@ -188,7 +192,7 @@ osd_ecu_monitor_new(struct navit *nav, struct osd_methods *meth,
     struct attr *attr;
     this->osd_item.rel_x = 0;
     this->osd_item.rel_y = 0;
-    this->osd_item.rel_w = 120;
+    this->osd_item.rel_w = 150;
     this->osd_item.rel_h = 480;
     this->osd_item.navit = nav;
     this->osd_item.font_size = 250;

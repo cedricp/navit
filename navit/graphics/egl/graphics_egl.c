@@ -1113,7 +1113,7 @@ static struct graphics_priv *graphics_opengl_new_helper(struct graphics_methods 
     return this;
 }
 
-static void create_framebuffer_texture(struct graphics_priv *gr) {
+static int create_framebuffer_texture(struct graphics_priv *gr) {
     GLenum status;
     // Prepare a new framebuffer object
     glGenFramebuffers(1, &gr->framebuffer_name);
@@ -1128,10 +1128,11 @@ static void create_framebuffer_texture(struct graphics_priv *gr) {
 
     status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
-        printf("Error creating texture framebuffer for overlay, exiting.\n");
-        SDL_Quit();
-        exit(1);
+        printf("Error creating texture framebuffer for overlay\n");
+        printf("Params : %ix%i \n", gr->width, gr->height);
+        return -1;
     }
+    return 0;
 }
 
 static struct graphics_priv *overlay_new(struct graphics_priv *gr,
@@ -1166,7 +1167,8 @@ static struct graphics_priv *overlay_new(struct graphics_priv *gr,
     this->next = gr->overlays;
     gr->overlays = this;
 
-    create_framebuffer_texture(this);
+    if (create_framebuffer_texture(this) != 0)
+    	return NULL;
 
     return this;
 }
@@ -1375,7 +1377,9 @@ static struct graphics_priv *graphics_egl_new(struct navit *nav,
     this->platform = gles_platform;
     this->sdl_event = SDL_RegisterEvents(1);
 
-    create_framebuffer_texture(this);
+    if (create_framebuffer_texture(this) != 0)
+    	return NULL;
+
     g_timeout_add(G_PRIORITY_DEFAULT+10, graphics_sdl_idle, this);
     glDisable(GL_DEPTH_TEST);
     return this;
