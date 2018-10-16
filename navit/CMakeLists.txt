@@ -177,6 +177,8 @@ endif()
 add_subdirectory (maptool)
 add_subdirectory (icons)
 add_subdirectory (maps)
+add_subdirectory (extra)
+
 if(ANDROID)
 	add_subdirectory (android)
 endif()

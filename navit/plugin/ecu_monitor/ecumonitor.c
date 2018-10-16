@@ -76,6 +76,7 @@ struct ecumonitor {
     int odo;
 
     struct graphics_image *img_speed_limiter;
+    struct graphics_image *img_engine_temp_limiter;
 
     struct thread_data* can_thread_data;
 };
@@ -124,7 +125,9 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
     p.x=5;
     p.y=10;
     graphics_draw_image(this->osd_item.gr, white_color, &p, this->img_speed_limiter);
-
+    p.x=5;
+    p.y=58;
+    graphics_draw_image(this->osd_item.gr, white_color, &p, this->img_engine_temp_limiter);
     /*
      *
      */
@@ -150,12 +153,12 @@ osd_ecu_monitor_init(struct ecumonitor *this, struct navit *nav)
     c.b = 65535;
     c.a = 65535;
     graphics_gc_set_foreground(this->white_color, &c);
+    c.r = 0;
+    c.g = 0;
+    c.b = 0;
+    c.a = 0;
+    graphics_gc_set_background(this->white_color, &c);
     graphics_gc_set_linewidth(this->white_color, this->width);
-    c.r = 0x0000;
-    c.g = 0x0000;
-    c.b = 0x0000;
-    c.a = 65535;
-    graphics_gc_set_background(this->bg, &c);
     c.r = 0xFFFF;
     c.g = 0x0000;
     c.b = 0x0000;
@@ -165,8 +168,13 @@ osd_ecu_monitor_init(struct ecumonitor *this, struct navit *nav)
 
     event_add_timeout(500, 1, callback_new_1(callback_cast(osd_ecu_monitor_draw), this));
 
-    char *src = graphics_icon_path("speed_limiter_48_48.png");
-    this->img_speed_limiter = graphics_image_new(this->osd_item.gr, src);
+    char *src_speed_limiter = graphics_icon_path("speed_limiter_48_48.png");
+    char *src_engine_temp = graphics_icon_path("engine_temp_48_48.png");
+
+    if (src_speed_limiter)
+    	this->img_speed_limiter = graphics_image_new(this->osd_item.gr, src_speed_limiter);
+    if (src_engine_temp)
+    	this->img_engine_temp_limiter = graphics_image_new(this->osd_item.gr, src_engine_temp);
 
     osd_ecu_monitor_draw(this, nav, NULL);
     this->callback=callback_new_1(callback_cast(ecu_monitor_idle), this);

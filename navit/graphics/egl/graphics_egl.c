@@ -94,6 +94,9 @@ struct graphics_priv {
     struct point p;
     int width;
     int height;
+    int screen_width;
+    int screen_height;
+    int multisample;
     int overlay_enabled;
     int overlay_autodisabled;
     int wraparound;
@@ -137,7 +140,7 @@ struct contour {
 static GHashTable *hImageData;
 static int      USERWANTSTOQUIT = 0;
 static struct   graphics_priv *graphics_priv_root;
-static struct   graphics_priv *graphics_opengl_new_helper(struct
+static struct   graphics_priv *graphics_gles_new_helper(struct
         graphics_methods
         *meth);
 
@@ -802,10 +805,10 @@ inline void draw_background(struct graphics_priv *gr) {
     GLf x[8];
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, gr->width, gr->height);
+    glViewport(0, 0, gr->screen_width, gr->screen_height);
 
-    p_eff.x = gr->p.x;
-    p_eff.y = gr->p.y;
+    p_eff.x = gr->p.x / gr->multisample;
+    p_eff.y = gr->p.y / gr->multisample;
 
     memset(x, 0, 8*sizeof(GLf));
     x[0]+=glF(1);
@@ -818,9 +821,11 @@ inline void draw_background(struct graphics_priv *gr) {
     glVertexAttribPointer (gr->texture_position_location, 2, GL_FLOAT, 0, 0, x);
 
     glDisable(GL_BLEND);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, gr->overlay_texture);
 
-    draw_rectangle_do(gr, &p_eff, gr->width, gr->height);
+    draw_rectangle_do(gr, &p_eff, gr->screen_width, gr->screen_height);
 
     glUniform1i(gr->use_texture_location, 0);
     glDisableVertexAttribArray(gr->texture_position_location);
@@ -835,6 +840,9 @@ inline void draw_overlay(struct graphics_priv *gr) {
 
     get_overlay_pos(gr, &p_eff);
 
+    p_eff.x /=  gr->multisample;
+    p_eff.y /=  gr->multisample;
+
     memset(x, 0, 8*sizeof(GLf));
     x[0]+=glF(1);
     x[1]+=glF(1);
@@ -847,9 +855,11 @@ inline void draw_overlay(struct graphics_priv *gr) {
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, gr->overlay_texture);
 
-    draw_rectangle_do(graphics_priv_root, &p_eff, gr->width, gr->height);
+    draw_rectangle_do(graphics_priv_root, &p_eff, gr->screen_width, gr->screen_height);
 
     glUniform1i(gr->use_texture_location, 0);
     glDisableVertexAttribArray(gr->texture_position_location);
@@ -867,9 +877,6 @@ static void draw_mode(struct graphics_priv *gr, enum draw_mode_num mode) {
     int i;
 
     if (mode == draw_mode_begin) {
-        // Should not be necessary...
-        // SDL_GL_MakeCurrent(gr->platform->eglwindow, gr->platform->eglcontext);
-
         if (gr->parent == NULL) {
             // Full redraw, reset drag position
             gr->p.x = 0;
@@ -954,9 +961,6 @@ static void *get_data(struct graphics_priv *this, const char *type) {
         glClearColor ( 0, 0, 0, 1);
         glClear ( GL_COLOR_BUFFER_BIT );
 
-        callback_list_call_attr_2(graphics_priv_root->cbl, attr_resize, GINT_TO_POINTER(this->width),
-        		GINT_TO_POINTER(this->height));
-
         this->program  = glCreateProgram();
         vertexShader   = load_shader(vertex_src, GL_VERTEX_SHADER);
         fragmentShader = load_shader(fragment_src, GL_FRAGMENT_SHADER);
@@ -983,6 +987,10 @@ static void *get_data(struct graphics_priv *this, const char *type) {
         win->disable_suspend=NULL;
         win->fullscreen = graphics_egl_fullscreen;
         win->disable_suspend = graphics_egl_disable_suspend;
+
+        callback_list_call_attr_2(graphics_priv_root->cbl, attr_resize, GINT_TO_POINTER(this->screen_width),
+        		GINT_TO_POINTER(this->screen_height));
+
         return win;
     }
 
@@ -1001,17 +1009,8 @@ static void overlay_resize(struct graphics_priv *gr, struct point *p, int w, int
     int changed = 0;
     int w2, h2;
 
-    if (w == 0) {
-        w2 = 1;
-    } else {
-        w2 = w;
-    }
-
-    if (h == 0) {
-        h2 = 1;
-    } else {
-        h2 = h;
-    }
+    w2 = (w == 0) ? 1 : w;
+    h2 = (h == 0) ? 1 : h;
 
     gr->p = *p;
     if (gr->width != w2) {
@@ -1042,7 +1041,7 @@ static void overlay_resize(struct graphics_priv *gr, struct point *p, int w, int
         }
 
         callback_list_call_attr_2(gr->cbl, attr_resize,
-        		GINT_TO_POINTER(gr->width), GINT_TO_POINTER(gr->height));
+        		GINT_TO_POINTER(gr->screen_width), GINT_TO_POINTER(gr->screen_height));
     }
 }
 
@@ -1090,7 +1089,7 @@ static struct graphics_methods graphics_methods = {
 	handle_event,
 };
 
-static struct graphics_priv *graphics_opengl_new_helper(struct graphics_methods *meth) {
+static struct graphics_priv *graphics_gles_new_helper(struct graphics_methods *meth) {
     struct font_priv *(*font_freetype_new) (void *meth);
     font_freetype_new = plugin_get_category_font("freetype");
 
@@ -1138,7 +1137,7 @@ static int create_framebuffer_texture(struct graphics_priv *gr) {
 static struct graphics_priv *overlay_new(struct graphics_priv *gr,
 		struct graphics_methods *meth, struct point *p,
 		int w, int h, int wraparound) {
-    struct graphics_priv *this = graphics_opengl_new_helper(meth);
+    struct graphics_priv *this = graphics_gles_new_helper(meth);
 
     this->p.x = p->x;
     this->p.y = p->y;
@@ -1310,7 +1309,7 @@ static struct graphics_priv *graphics_egl_new(struct navit *nav,
         return NULL;
 
     hImageData = g_hash_table_new(g_str_hash, g_str_equal);
-    struct graphics_priv *this = graphics_opengl_new_helper(meth);
+    struct graphics_priv *this = graphics_gles_new_helper(meth);
     graphics_priv_root = this;
 
     this->nav = nav;
@@ -1327,11 +1326,27 @@ static struct graphics_priv *graphics_egl_new(struct navit *nav,
     this->height = DEFAULT_SCREEN_HEIGHT;
     if ((attr = attr_search(attrs, NULL, attr_h)))
         this->height = attr->u.num;
-    this->cbl = cbl;
 
-    graphics_priv_root->cbl = cbl;
-    graphics_priv_root->width = this->width;
-    graphics_priv_root->height = this->height;
+
+    this->multisample = 1;
+    if ((attr = attr_search(attrs, NULL, attr_multisample))){
+    	this->multisample = attr->u.num;
+    }
+
+    /*
+     * Note about multisample:
+     *
+     * As we're working with texture for composition,
+     * we render map and layers to a scaled texture framebuffer
+     * and we render it to the device framebuffer with filtering
+     */
+
+	this->screen_height = this->height;
+	this->screen_width  = this->width;
+	this->height *= this->multisample;
+	this->width *= this->multisample;
+
+    this->cbl = cbl;
 
     struct graphics_gles_platform *gles_platform = g_new0(struct graphics_gles_platform, 1);
 
@@ -1358,8 +1373,8 @@ static struct graphics_priv *graphics_egl_new(struct navit *nav,
                          "Navit",                       	// window title
                          SDL_WINDOWPOS_UNDEFINED,           // initial x position
                          SDL_WINDOWPOS_UNDEFINED,           // initial y position
-                         this->width,                       // width, in pixels
-                         this->height,                      // height, in pixels
+                         this->screen_width,                       // width, in pixels
+                         this->screen_height,                      // height, in pixels
                          flags
                      );
 

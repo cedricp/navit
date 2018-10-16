@@ -14,6 +14,7 @@
 		<plugin path="$NAVIT_LIBDIR/*/${NAVIT_LIBPREFIX}libgraphics_null.so" active="no"/>
 		<plugin path="$NAVIT_LIBDIR/*/${NAVIT_LIBPREFIX}/libplugin_ecu_monitor.so" active="yes"/>
 	</plugins>
+	
 
 	<!-- The global debug level (like using command line option "-d"). Ignored if option -d is used. -->
 	<!-- Possible debug levels: error, warning, info, debug. -->
@@ -34,7 +35,7 @@
 		Center coordinates format: "Long Lat" in decimal degrees (WGS 84).
 		For other formats see http://wiki.navit-project.org/index.php/Coordinate_format.
 		-->
-	<navit center="11.5666 48.1333" zoom="16" autozoom_active="1" follow_cursor="1" tracking="1" orientation="-1" recent_dest="250" drag_bitmap="0" >
+	<navit center="43.5638 3.9542" zoom="16" pitch="30" autozoom_active="1" follow_cursor="1" tracking="1" orientation="-1" recent_dest="250" drag_bitmap="0" >
 		<!-- Use one of gtk_drawing_area, qt_qpainter or sdl.
 		     On windows systems, use win32 -->
 		<graphics type="sdl" w="640" h="480"/>
@@ -170,16 +171,20 @@ Waypoint</text></img>
 		<!-- osd items allow to position display and control items directly on top of the map.
 		You can find a list of all the available OSDs items here:
 		http://wiki.navit-project.org/index.php/OSD -->
-		<osd enabled="yes" type="compass" x="570" y="0" w="70"/>
-		<osd enabled="yes" type="odometer"/>
+		<osd enabled="yes" type="compass" x="570" y="0" w="70"  h="70"/>
 		<osd enabled="yes" type="ecu_monitor"/>
-		<osd enabled="yes" type="navigation_next_turn" x="570" y="80"/> 
-		<osd enabled="yes" type="speed_cam" x="580" y="120"/> 
-		<osd enabled="yes" type="speed_warner" x="580" y="150"/> 
-		<osd enabled="yes" type="navigation_status" x="580" y="210" w="60" h="60"/> 
-        <osd enabled="yes" type="toggle_announcer" x="580" y="270"/>
-		<osd enabled="no" type="volume" x="30" y="30"/>
+		<osd enabled="yes" type="speed_cam" x="170" y="160" w="300" h="150" font_size="600" text_color="#2A3845" 
+		idle_color="#FFFFFF00" background_color="#FFFFFF90" announce_on="1" label="ZONE RADAR&#10;${distance}&#10;${speed_limit} km/h"/> 
+		<osd enabled="yes" type="speed_warner" x="275" y="0" w="90" h="90" font_size="500" background_color="#88888890"/> 
+		<osd type="text" label="${navigation.item.destination_length[named]}\n${navigation.item.destination_time[arrival]}
+\n${navigation.item.destination_time[remaining]}" x="-80" y="-53" w="80" h="53" font_size="266" osd_configuration="1"/>
+		<osd enabled="yes" type="gps_status" x="500" y="0" w="70" h="70"/> 
 		
+		<osd enabled="no" type="navigation_status" x="580" y="210" w="60" h="60"/> 
+        <osd enabled="no" type="toggle_announcer" x="580" y="270"/>
+		<osd enabled="no" type="volume" x="30" y="30"/>
+		<osd enabled="no" type="odometer"/>
+		<osd enabled="no" type="navigation_next_turn" x="570" y="80"/> 		
 		<!-- Commands include gui_internal_menu, gui_internal_fullscreen, zoom_in and zoom_out.
 			Usage of negative values change the button origins. x="0" y="0" specifies the top left, x="-0" y="-0" the bottom right corner.
 			It's always the top left corner of the icon, so you need to consider the icon's size when you enter the values. -->
@@ -189,7 +194,7 @@ Waypoint</text></img>
 		<osd enabled="no" type="button" x="0" y="-96" command="zoom_out()" src="zoom_out.png"/>
 
 		<!-- Vehicle with GPS enabled for gpsd on unix -->
-		<vehicle name="Local GPS" profilename="car" enabled="yes" active="1" source="gpsd://localhost" gpsd_query="w+xj">
+		<vehicle name="Local GPS" profilename="car" enabled="no" active="1" source="gpsd://localhost" gpsd_query="w+xj">
 		<!-- Vehicle with GPS enabled for direct communication on windows. Remove the line above if you use this. -->
 		<!-- <vehicle name="Local GPS" profilename="car" follow="1" enabled="yes" active="1"
 				source="serial:COM4 baudrate=4800 parity=N data=8 stop=1" > -->
@@ -201,7 +206,7 @@ Waypoint</text></img>
 		<!-- For SDL, you should add follow="1" to have the view centered on your position -->
 		<!-- <vehicle name="Meins" enabled="yes" source="gpsd://localhost" color="#0000ff" follow="1"/> -->
 
-		<vehicle name="Megane CC" profilename="car" enabled="yes" follow="1" source="demo://"/>
+		<vehicle name="Megane CC" profilename="car" enabled="yes" follow="1" source="demo://" active="1"/>
 
 		<!-- For the cumulative displacement filter to be enabled, set cdf_histsize="x" here, with x being an integer somewhere around 4 -->
 		<tracking cdf_histsize="0"/>
@@ -408,7 +413,7 @@ Waypoint</text></img>
 		</mapset>
 
 		<!-- If you dont want to use the sample map, either set enabled="no" in the next line or remove the xml file from the maps directory -->
-		<mapset enabled="yes">
+		<mapset enabled="no">
 			<xi:include href="$NAVIT_SHAREDIR/maps/*.xml"/>
 		</mapset>
 
@@ -416,6 +421,14 @@ Waypoint</text></img>
 		<mapset enabled="no">
 			<map type="binfile" enabled="yes" data="/media/mmc2/MapsNavit/osm_europe.bin"/>
 		</mapset>
+		
+		<mapset enabled="yes">
+			<map type="binfile" enabled="yes" data="/home/cedric/Desktop/osm_bbox_fr.bin"/>
+			<map type="csv" enabled="yes" data="$NAVIT_SHAREDIR/maps/speedcamfr.csv" item_type="tec_common" 
+attr_types="position_longitude,position_latitude,tec_type,maxspeed,tec_dirtype,tec_direction" />
+		</mapset>
+		
+		 
 
 		<!-- Mapset template for garmin maps -->
 		<mapset enabled="no">

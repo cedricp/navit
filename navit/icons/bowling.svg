@@ -9,14 +9,14 @@
    xmlns="http://www.w3.org/2000/svg"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   height="200"
+   height="22"
    id="svg2"
    inkscape:output_extension="org.inkscape.output.svg.inkscape"
-   inkscape:version="0.92.2 (5c3e80d, 2017-08-06)"
+   inkscape:version="0.91 r13725"
    sodipodi:docname="bowling.svg"
    sodipodi:version="0.32"
    version="1.0"
-   width="200">
+   width="22">
   <defs
      id="defs22">
     <inkscape:perspective
@@ -49,33 +49,37 @@
      guidetolerance="10.0"
      id="base"
      inkscape:current-layer="svg2"
-     inkscape:cx="88.343465"
-     inkscape:cy="3.213385"
+     inkscape:cx="17.12393"
+     inkscape:cy="-14.011525"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:window-height="725"
      inkscape:window-width="1024"
      inkscape:window-x="0"
      inkscape:window-y="20"
-     inkscape:zoom="1"
+     inkscape:zoom="5.6568542"
      objecttolerance="10.0"
      pagecolor="#ffffff"
      showgrid="false"
      inkscape:window-maximized="0"
      inkscape:measure-start="0,0"
-     inkscape:measure-end="0,0" />
+     inkscape:measure-end="0,0"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0" />
   <g
      id="g1327"
-     transform="matrix(0.33403911,0,0,0.33403911,3.8232233,2.6463362)">
+     transform="matrix(0.03768646,0,0,0.03768646,0,0.02316326)">
     <path
-       d="M 66.275,1.768 C 24.94,1.768 1.704,23.139 1.704,66.804 v 450.123 c 0,40.844 20.894,62.229 62.192,62.229 H 515.92 c 41.307,0 62.229,-20.316 62.229,-62.229 V 66.804 c 0,-42.601 -20.922,-65.036 -63.522,-65.036 -0.003,0 -448.494,-0.143 -448.352,0 z"
+       d="M 66.275,1.768 C 24.94,1.768 1.704,23.139 1.704,66.804 l 0,450.123 c 0,40.844 20.894,62.229 62.192,62.229 l 452.024,0 c 41.307,0 62.229,-20.316 62.229,-62.229 l 0,-450.123 c 0,-42.601 -20.922,-65.036 -63.522,-65.036 -0.003,0 -448.494,-0.143 -448.352,0 z"
        id="path1329"
        style="fill:#111111;fill-opacity:0;stroke:#eeeeee;stroke-width:3.40799999;stroke-opacity:0"
        inkscape:connector-curvature="0" />
   </g>
   <g
      id="g2319"
-     transform="matrix(0.04083073,0,0,0.04083073,35.725326,178.44255)">
+     transform="matrix(0.04083073,0,0,0.04083073,-54.597894,89.410379)">
     <path
        d=""
        id="path2323"
@@ -84,7 +88,7 @@
   </g>
   <g
      id="g2325"
-     transform="matrix(0.04083073,0,0,0.04083073,35.725326,178.44255)">
+     transform="matrix(0.04083073,0,0,0.04083073,-54.597894,89.410379)">
     <path
        d=""
        id="path2329"
@@ -92,30 +96,30 @@
        inkscape:connector-curvature="0" />
   </g>
   <circle
-     style="fill:#0089cd;fill-opacity:1;stroke:#0089cd;stroke-width:11.72280502;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     style="fill:#0089cd;fill-opacity:1;stroke:#0089cd;stroke-width:1.32257295;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
      id="path4536"
-     cx="101.80831"
-     cy="100.42613"
-     r="91.153503" />
+     cx="11.054717"
+     cy="11.054729"
+     r="10.283985" />
   <ellipse
      style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:13.93399143;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
      id="path4538"
-     cx="131.56744"
-     cy="45.196854"
-     rx="9.4208956"
-     ry="9.4208965" />
+     cx="14.412169"
+     cy="4.8237329"
+     rx="1.0628703"
+     ry="1.0628704" />
   <ellipse
      style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:13.93399143;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
      id="path4538-4"
-     cx="161.06557"
-     cy="77.03508"
-     rx="9.4208956"
-     ry="9.4208965" />
+     cx="17.740173"
+     cy="8.4157362"
+     rx="1.0628703"
+     ry="1.0628704" />
   <ellipse
      style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:13.93399143;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
      id="path4538-4-4"
-     cx="121.56072"
-     cy="81.713364"
-     rx="9.4208956"
-     ry="9.4208965" />
+     cx="13.283202"
+     cy="8.9435453"
+     rx="1.0628703"
+     ry="1.0628704" />
 </svg>

@@ -2468,6 +2468,8 @@ static void osd_speed_cam_draw(struct osd_priv_common *opc, struct navit *navit,
             }
         } else {
             this_->announce_state=eNoWarn;
+            graphics_overlay_disable(opc->osd_item.gr,1);
+            return;
         }
 
         if(this_->text) {
@@ -2510,6 +2512,8 @@ static void osd_speed_cam_draw(struct osd_priv_common *opc, struct navit *navit,
             }
             draw_multiline_osd_text(buffer,&opc->osd_item, curr_color);
             graphics_draw_mode(opc->osd_item.gr, draw_mode_end);
+        } else {
+        	graphics_overlay_disable(opc->osd_item.gr,1);
         }
     } else {
         graphics_overlay_disable(opc->osd_item.gr,1);
@@ -2594,6 +2598,7 @@ struct osd_speed_warner {
     struct graphics_gc *green;
     struct graphics_gc *grey;
     struct graphics_gc *black;
+    struct graphics_gc *white;
     int width;
     int active;
     int d;
@@ -2651,6 +2656,7 @@ static void osd_speed_warner_draw(struct osd_priv_common *opc, struct navit *nav
             routespeed = maxspeed_attr.u.num;
             osm_data = 1;
         }
+
         if (routespeed == -1) {
             struct vehicleprofile *prof=navit_get_vehicleprofile(navit);
             struct roadprofile *rprof=NULL;
@@ -2683,7 +2689,7 @@ static void osd_speed_warner_draw(struct osd_priv_common *opc, struct navit *nav
             }
             if( tracking_speed <= routespeed ) {
                 this->announce_state=eNoWarn; //no warning
-                osd_color = this->green;
+                osd_color = this->white;
                 img = this->img_passive;
             } else {
                 osd_color = this->red;
@@ -2706,7 +2712,7 @@ static void osd_speed_warner_draw(struct osd_priv_common *opc, struct navit *nav
         p.y=(opc->osd_item.h-img->height)/2;
         graphics_draw_image(opc->osd_item.gr, opc->osd_item.graphic_bg, &p, img);
     } else if(0==this->bTextOnly) {
-        graphics_draw_circle(opc->osd_item.gr, osd_color, &p, this->d-this->width*2 );
+        graphics_draw_circle(opc->osd_item.gr, this->red, &p, this->d-this->width*2 );
     }
     graphics_get_text_bbox(opc->osd_item.gr, opc->osd_item.font, text, 0x10000, 0, bbox, 0);
     p.x=(opc->osd_item.w-bbox[2].x)/2;
@@ -2743,6 +2749,7 @@ static void osd_speed_warner_init(struct osd_priv_common *opc, struct navit *nav
     struct color green_color= {0,0xffff,0,0xffff};
     struct color grey_color= {0x8888,0x8888,0x8888,0x8888};
     struct color black_color= {0x1111,0x1111,0x1111,0x9999};
+    struct color white_color= {0xffff,0xffff,0xffff,0xffff};
 
     osd_set_std_graphic(nav, &opc->osd_item, (struct osd_priv *)opc);
     navit_add_callback(nav, callback_new_attr_1(callback_cast(osd_speed_warner_draw), attr_position_coord_geo, opc));
@@ -2796,6 +2803,10 @@ static void osd_speed_warner_init(struct osd_priv_common *opc, struct navit *nav
     this->black=graphics_gc_new(opc->osd_item.gr);
     graphics_gc_set_foreground(this->black, &black_color);
     graphics_gc_set_linewidth(this->black, this->width);
+
+    this->white=graphics_gc_new(opc->osd_item.gr);
+    graphics_gc_set_foreground(this->white, &white_color);
+    graphics_gc_set_linewidth(this->white, this->width - 2);
 
     osd_speed_warner_draw(opc, nav, NULL);
 }

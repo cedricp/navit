@@ -203,6 +203,7 @@ ATTR(w)
 ATTR(x)
 ATTR(y)
 ATTR(font_size)
+ATTR(multisample)
 
 ATTR2(0x00028000,type_boolean_begin)
 /* boolean */
