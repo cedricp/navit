@@ -41,4 +41,25 @@ void stop_can_thread(struct thread_data*);
 void mutex_lock(struct thread_data* tdata);
 void mutex_unlock(struct thread_data* tdata);
 
+uint8_t get_battery_charge_status(struct thread_data* tdata);
+uint8_t get_external_temperature(struct thread_data* tdata);
+uint8_t get_boot_lock_status(struct thread_data* tdata);
+uint8_t get_door_lock_status(struct thread_data* tdata);
+uint8_t get_right_door_open(struct thread_data* tdata);
+uint8_t get_left_door_open(struct thread_data* tdata);
+uint8_t get_boot_open(struct thread_data* tdata);
+uint8_t get_limiter_speed_value(struct thread_data* tdata);
+uint8_t get_cruise_control_on(struct thread_data* tdata);
+uint8_t get_speed_limiter_on(struct thread_data* tdata);
+uint32_t get_vehicle_speed(struct thread_data* tdata);
+uint32_t get_engine_rpm(struct thread_data* tdata);
+uint32_t get_engine_water_temp(struct thread_data* tdata);
+uint32_t get_oil_level(struct thread_data* tdata);
+uint32_t get_fuel_level(struct thread_data* tdata);
+uint32_t get_odometer_total(struct thread_data* tdata);
+float 	get_battery_voltage(struct thread_data* tdata);
+float 	get_instant_fuel_consumption_per_100_km(struct thread_data* tdata);
+float 	get_instant_fuel_consumption_liter_per_hour(struct thread_data* tdata);
+void get_instant_fuel_consumption_string(struct thread_data* tdata, char* buffer, short* state);
+
 #endif

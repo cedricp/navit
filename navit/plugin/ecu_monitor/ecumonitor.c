@@ -65,7 +65,7 @@ struct ecumonitor {
     struct callback *callback;
     struct osd_item osd_item;
     int width;
-    struct graphics_gc *red_color,*white_color,* bg;
+    struct graphics_gc *red_color,*white_color, *green_color, *orange_color, * bg;
     struct callback *click_cb;
     int init_string_index;
 
@@ -76,6 +76,7 @@ struct ecumonitor {
     int odo;
 
     struct graphics_image *img_speed_limiter;
+    struct graphics_image *img_speed_cruise_control;
     struct graphics_image *img_engine_temp_limiter;
 
     struct thread_data* can_thread_data;
@@ -101,36 +102,101 @@ ecu_monitor_idle(struct ecumonitor *ecu_monitor)
 {
 }
 
+inline void draw_text(struct ecumonitor *this, struct graphics_gc* gc, const char* text, int x, int y)
+{
+	struct point p;
+    p.x=x;
+    p.y=y;
+    graphics_draw_text(this->osd_item.gr, gc, NULL, this->osd_item.font, text, &p, 0x10000, 0);
+}
+
+inline void draw_image(struct ecumonitor *this, struct graphics_gc* gc, struct graphics_image* image, int x, int y)
+{
+	struct point p;
+    p.x=x;
+    p.y=y;
+    graphics_draw_image(this->osd_item.gr, gc, &p, image);
+}
+
+inline void text_bbox(struct ecumonitor *this, const char *text, struct point bbox[4])
+{
+
+	graphics_get_text_bbox(this->osd_item.gr, this->osd_item.font, text, 0x10000, 0, bbox, 0);
+}
+
 static void
 osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
         struct vehicle *v)
 {
-    struct point p;
-    struct point bbox[4];
     char string_buffer[32];
+    struct point bbox[4];
+    short state;
 
 	osd_fill_with_bgcolor(&this->osd_item);
 	/*
 	 * Limiter view
 	 */
-	sprintf(string_buffer, "%i Km/h", this->can_thread_data->limiter_speed_value);
-    graphics_get_text_bbox(this->osd_item.gr, this->osd_item.font, string_buffer, 0x10000, 0, bbox, 0);
-    p.x = 65;
-    p.y = 40;
 
-    struct graphics_gc *white_color = this->white_color;
-    graphics_draw_text(this->osd_item.gr, white_color, NULL, this->osd_item.font, string_buffer, &p, 0x10000, 0);
-    graphics_draw_mode(this->osd_item.gr, draw_mode_end);
+	int text_x = 55;
+	int text_y = 50;
 
-    p.x=5;
-    p.y=10;
-    graphics_draw_image(this->osd_item.gr, white_color, &p, this->img_speed_limiter);
-    p.x=5;
-    p.y=58;
-    graphics_draw_image(this->osd_item.gr, white_color, &p, this->img_engine_temp_limiter);
+	int img_x = 5;
+	int img_y = 25;
+
+	sprintf(string_buffer, "%06d Km", get_odometer_total(this->can_thread_data));
+	text_bbox(this, string_buffer, bbox);
+	draw_text(this, this->white_color, string_buffer, 75 - (bbox[3].x - bbox[0].x) / 2 , img_y);
+
+	text_y += 30;
+	img_y += 30;
+	sprintf(string_buffer, "%03d Km/h", get_vehicle_speed(this->can_thread_data));
+	text_bbox(this, string_buffer, bbox);
+	draw_text(this, this->white_color, string_buffer, 75 - (bbox[3].x - bbox[0].x) / 2 , img_y);
+
+	text_y += 30;
+	img_y += 30;
+	sprintf(string_buffer, "%04d RPM", get_engine_rpm(this->can_thread_data));
+	text_bbox(this, string_buffer, bbox);
+	draw_text(this, this->white_color, string_buffer, 75 - (bbox[3].x - bbox[0].x) / 2 , img_y);
+
+	text_y += 30;
+	img_y += 30;
+	get_instant_fuel_consumption_string(this->can_thread_data, string_buffer, &state);
+	struct graphics_gc* ggc = this->white_color;
+	if (state == 0)
+		ggc = this->green_color;
+	if (state == 1)
+		ggc = this->orange_color;
+	if (state == 2)
+		ggc = this->red_color;
+	text_bbox(this, string_buffer, bbox);
+	draw_text(this, ggc, string_buffer, 75 - (bbox[3].x - bbox[0].x) / 2 , img_y);
+
+	text_y += 20;
+	img_y += 20;
+	uint8_t speed_control_value = get_limiter_speed_value(this->can_thread_data);
+	if (speed_control_value < 210)
+		sprintf(string_buffer, "%03d Km/h", speed_control_value);
+	else
+		sprintf(string_buffer, "--- Km/h");
+
+	draw_text(this, this->white_color, string_buffer, text_x, text_y);
+
+	if (get_speed_limiter_on(this->can_thread_data))
+		draw_image(this, this->osd_item.graphic_bg, this->img_speed_limiter, img_x, img_y);
+	else if (get_cruise_control_on(this->can_thread_data))
+		draw_image(this, this->osd_item.graphic_bg, this->img_speed_cruise_control, img_x, img_y);
+
+	text_y += 32;
+	img_y += 32;
+	sprintf(string_buffer, "%i \u00b0 C", get_limiter_speed_value(this->can_thread_data));
+	draw_text(this, this->white_color, string_buffer, text_x, text_y);
+	draw_image(this, this->osd_item.graphic_bg, this->img_engine_temp_limiter, img_x, img_y);
+
     /*
-     *
+     * End draw
      */
+    graphics_draw_mode(this->osd_item.gr, draw_mode_end);
 }
 
 /**
@@ -148,16 +214,14 @@ osd_ecu_monitor_init(struct ecumonitor *this, struct navit *nav)
     this->bg = graphics_gc_new(this->osd_item.gr);
     this->white_color = graphics_gc_new(this->osd_item.gr);
     this->red_color = graphics_gc_new(this->osd_item.gr);
+    this->orange_color = graphics_gc_new(this->osd_item.gr);
+    this->green_color = graphics_gc_new(this->osd_item.gr);
+
     c.r = 65535;
     c.g = 65535;
     c.b = 65535;
     c.a = 65535;
     graphics_gc_set_foreground(this->white_color, &c);
-    c.r = 0;
-    c.g = 0;
-    c.b = 0;
-    c.a = 0;
-    graphics_gc_set_background(this->white_color, &c);
     graphics_gc_set_linewidth(this->white_color, this->width);
     c.r = 0xFFFF;
     c.g = 0x0000;
@@ -166,15 +230,31 @@ osd_ecu_monitor_init(struct ecumonitor *this, struct navit *nav)
     graphics_gc_set_foreground(this->red_color, &c);
     graphics_gc_set_linewidth(this->osd_item.graphic_fg, this->width);
 
+    c.r = 0x0000;
+    c.g = 0xFFFF;
+    c.b = 0x0000;
+    c.a = 65535;
+    graphics_gc_set_foreground(this->green_color, &c);
+
+    c.r = 0xFFFF;
+    c.g = 0x8888;
+    c.b = 0x0000;
+    c.a = 65535;
+    graphics_gc_set_foreground(this->orange_color, &c);
+
     event_add_timeout(500, 1, callback_new_1(callback_cast(osd_ecu_monitor_draw), this));
 
-    char *src_speed_limiter = graphics_icon_path("speed_limiter_48_48.png");
-    char *src_engine_temp = graphics_icon_path("engine_temp_48_48.png");
+    char *src_speed_limiter = graphics_icon_path("speed_limiter_32_32.png");
+    char *src_speed_cruise_control = graphics_icon_path("speed_cruise_control_32_32.png");
+    char *src_engine_temp = graphics_icon_path("engine_temp_32_32.png");
 
     if (src_speed_limiter)
     	this->img_speed_limiter = graphics_image_new(this->osd_item.gr, src_speed_limiter);
+    if (src_speed_cruise_control)
+        this->img_speed_cruise_control = graphics_image_new(this->osd_item.gr, src_speed_cruise_control);
     if (src_engine_temp)
     	this->img_engine_temp_limiter = graphics_image_new(this->osd_item.gr, src_engine_temp);
+
 
     osd_ecu_monitor_draw(this, nav, NULL);
     this->callback=callback_new_1(callback_cast(ecu_monitor_idle), this);
@@ -190,7 +270,7 @@ osd_ecu_monitor_new(struct navit *nav, struct osd_methods *meth,
         struct attr **attrs)
 {
 	if (g_thread_data){
-		printf("Cannot instance more than 1 ecu-monitor plug-in\n");
+		printf("Cannot instantiate more than 1 ecu-monitor plug-in\n");
 		return NULL;
 	}
     struct ecumonitor *this=g_new0(struct ecumonitor, 1);
@@ -203,8 +283,8 @@ osd_ecu_monitor_new(struct navit *nav, struct osd_methods *meth,
     this->osd_item.rel_w = 150;
     this->osd_item.rel_h = 480;
     this->osd_item.navit = nav;
-    this->osd_item.font_size = 250;
-    //this->osd_item.font_name = "6809 Chargen";
+    this->osd_item.font_size = 300;
+    this->osd_item.font_name = "White Rabbit";
     this->osd_item.meth.draw = osd_draw_cast(osd_ecu_monitor_draw);
 
     osd_set_std_attr(attrs, &this->osd_item, 2);
@@ -222,16 +302,12 @@ osd_ecu_monitor_new(struct navit *nav, struct osd_methods *meth,
 void
 plugin_init(void)
 {
-	struct attr callback,navit;
-	struct attr_iter *iter;
-
 	plugin_register_category_osd("ecu_monitor", osd_ecu_monitor_new);
 }
 
 void
 plugin_uninit(void* data)
 {
-	printf("Destroy data %x\n", data);
 	if (g_thread_data)
 		stop_can_thread(g_thread_data);
 }

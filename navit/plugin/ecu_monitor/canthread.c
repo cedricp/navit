@@ -23,6 +23,15 @@
 #include "canthread.h"
 #include "cansocket.h"
 
+#define CAN11_MASK			0x07FF
+
+#define DASHBOARD_FRAME 	0x0715
+#define BCM_FRAME			0x060D
+#define ENGINE_TORQUE_FRAME 0x0181
+#define ENGINE_DATA			0x0551
+#define BRAKE_DATA			0x0354
+#define UPC_DATA			0x0625
+
 inline uint64_t timeval_to_millis(struct timeval* tv)
 {
 	return (tv->tv_sec * (uint64_t)1000) + (tv->tv_usec / 1000);
@@ -111,7 +120,10 @@ extract_engine_data(struct thread_data* tdata)
         tdata->fuel_accum = 0;
 
 		// vehicle_speed is in Km/h * 100
-		tdata->instant_fuel_consumption_per_100_km = (dm3perhour * 10000.f) / ((float) tdata->vehicle_speed);
+        if (tdata->vehicle_speed > 3000)
+        	tdata->instant_fuel_consumption_per_100_km = (dm3perhour * 10000.f) / ((float) tdata->vehicle_speed);
+        else
+        	tdata->instant_fuel_consumption_per_100_km = -1;
 		tdata->instant_fuel_consumption_liter_per_hour = dm3perhour;
 	}
 unlock_and_quit:
@@ -172,22 +184,22 @@ can_thread_function(void* data)
 			 */
 			canid_t can_id = tdata->can_data->frame.can_id & CAN_SFF_MASK;
 			switch(can_id){
-			case 0x0715:
+			case DASHBOARD_FRAME:
 				extract_dashboard_data(tdata);
 				break;
-			case 0x060D:
+			case BCM_FRAME:
 				extract_bcm_general_data(tdata);
 				break;
-			case 0x0181:
+			case ENGINE_TORQUE_FRAME:
 				extract_engine_torque_data(tdata);
 				break;
-			case 0x0551:
+			case ENGINE_DATA:
 				extract_engine_data(tdata);
 				break;
-			case 0x0354:
+			case BRAKE_DATA:
 				extract_brake_data(tdata);
 				break;
-			case 0x0625:
+			case UPC_DATA:
 				extract_upc_data(tdata);
 				break;
 			default:
@@ -224,29 +236,34 @@ create_can_thread(const char* can_ifname, struct navit* nav)
 	tdata->fuel_accum = tdata->fuel_accum_time = 0;
 	tdata->last_ecm_timestamp = tdata->last_ecm_fuel_accum = 0;
 	tdata->limiter_speed_value = 0;
+	tdata->odometer_total = tdata->vehicle_speed = 0;
+	tdata->instant_fuel_consumption_liter_per_hour = tdata->instant_fuel_consumption_per_100_km = 0;
+	tdata->speed_limiter_on = 0;
+	tdata->cruise_control_on = 0;
+	tdata->engine_rpm = 0;
 
 	/*
 	 * Set filters to avoid too much network traffic
 	 */
 	tdata->can_data->numfilters = 5;
 
-	tdata->can_data->filters[0] = 0x060D;
-	tdata->can_data->masks[0] 	= 0x07FF;
+	tdata->can_data->filters[0] = DASHBOARD_FRAME;
+	tdata->can_data->masks[0] 	= CAN11_MASK;
 
-	tdata->can_data->filters[1] = 0x0181;
-	tdata->can_data->masks[1] 	= 0x07FF;
+	tdata->can_data->filters[1] = BCM_FRAME;
+	tdata->can_data->masks[1] 	= CAN11_MASK;
 
-	tdata->can_data->filters[2] = 0x0551;
-	tdata->can_data->masks[2] 	= 0x07FF;
+	tdata->can_data->filters[2] = ENGINE_TORQUE_FRAME;
+	tdata->can_data->masks[2] 	= CAN11_MASK;
 
-	tdata->can_data->filters[3] = 0x0715;
-	tdata->can_data->masks[3] 	= 0x07FF;
+	tdata->can_data->filters[3] = ENGINE_DATA;
+	tdata->can_data->masks[3] 	= CAN11_MASK;
 
-	tdata->can_data->filters[4] = 0x0354;
-	tdata->can_data->masks[4] 	= 0x07FF;
+	tdata->can_data->filters[4] = BRAKE_DATA;
+	tdata->can_data->masks[4] 	= CAN11_MASK;
 
-	tdata->can_data->filters[5] = 0x0625;
-	tdata->can_data->masks[5] 	= 0x07FF;
+	tdata->can_data->filters[5] = UPC_DATA;
+	tdata->can_data->masks[5] 	= CAN11_MASK;
 
 	/*
 	 * Create MUTEX
@@ -294,6 +311,163 @@ void
 stop_can_thread(struct thread_data* tdata)
 {
 	tdata->running = 0;
-	pthread_join( tdata->thread, NULL);
+	pthread_join(tdata->thread, NULL);
 	pthread_mutex_destroy(&tdata->mutex);
+}
+
+uint32_t get_vehicle_speed(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint32_t retval = tdata->vehicle_speed;
+	mutex_unlock(tdata);
+	return retval / 100;
+}
+
+uint32_t get_engine_rpm(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint32_t retval = tdata->engine_rpm;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint32_t get_engine_water_temp(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint32_t retval = tdata->engine_water_temp;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint32_t get_oil_level(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint32_t retval = tdata->oil_level;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint32_t get_fuel_level(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint32_t retval = tdata->fuel_level;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint32_t get_odometer_total(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint32_t retval = tdata->odometer_total;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+float get_battery_voltage(struct thread_data* tdata){
+	mutex_lock(tdata);
+	float retval = tdata->battery_voltage;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+float get_instant_fuel_consumption_per_100_km(struct thread_data* tdata){
+	mutex_lock(tdata);
+	float retval = tdata->instant_fuel_consumption_per_100_km;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+
+float get_instant_fuel_consumption_liter_per_hour(struct thread_data* tdata){
+	mutex_lock(tdata);
+	float retval = tdata->instant_fuel_consumption_liter_per_hour;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+void get_instant_fuel_consumption_string(struct thread_data* tdata, char* buffer, short* state){
+	mutex_lock(tdata);
+	float retval1 = tdata->instant_fuel_consumption_liter_per_hour;
+	float retval2 = tdata->instant_fuel_consumption_per_100_km;
+	mutex_unlock(tdata);
+
+	if (retval2 < 0.){
+		*state = 0;
+		sprintf(buffer, "%.1f L/h", retval1);
+		return;
+	}
+
+
+	if (retval1 < 8.)
+		*state = 0;
+	else if (retval1 < 13.)
+		*state = 1;
+	else
+		*state = 2;
+
+	sprintf(buffer, "%.1f L/100", retval2);;
+}
+
+uint8_t get_battery_charge_status(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->battery_charge_status;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_external_temperature(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->external_temperature;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_boot_lock_status(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->boot_lock_status;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_door_lock_status(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->door_lock_status;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_right_door_open(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->right_door_open;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_left_door_open(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->left_door_open;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_boot_open(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->boot_open;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_limiter_speed_value(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->limiter_speed_value;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_cruise_control_on(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->cruise_control_on;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_speed_limiter_on(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->speed_limiter_on;
+	mutex_unlock(tdata);
+	return retval;
 }

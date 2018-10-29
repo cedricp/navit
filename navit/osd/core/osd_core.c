@@ -2618,7 +2618,7 @@ static void osd_speed_warner_draw(struct osd_priv_common *opc, struct navit *nav
     struct osd_speed_warner *this = (struct osd_speed_warner *)opc->data;
 
     struct point p,bbox[4];
-    char text[16]="";
+    char text[16]="N/A";
 
     struct tracking *tracking = NULL;
     struct graphics_gc *osd_color=this->grey;
@@ -2747,7 +2747,7 @@ static void osd_speed_warner_init(struct osd_priv_common *opc, struct navit *nav
 
     struct color red_color= {0xffff,0,0,0xffff};
     struct color green_color= {0,0xffff,0,0xffff};
-    struct color grey_color= {0x8888,0x8888,0x8888,0x8888};
+    struct color grey_color= {0xaaaa,0xaaaa,0xaaaa,0xffff};
     struct color black_color= {0x1111,0x1111,0x1111,0x9999};
     struct color white_color= {0xffff,0xffff,0xffff,0xffff};
 
