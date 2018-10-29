@@ -17,7 +17,8 @@ struct thread_data {
 	/*
 	 * Vehicle_speed is Km/h * 100
 	 */
-	uint32_t vehicle_speed, engine_rpm, engine_water_temp;
+	uint32_t vehicle_speed, engine_rpm;
+	int8_t  engine_water_temp;
 	uint8_t limiter_speed_value, cruise_control_on, speed_limiter_on;
 	float   battery_voltage;
 	int8_t  battery_charge_status;
@@ -53,13 +54,13 @@ uint8_t get_cruise_control_on(struct thread_data* tdata);
 uint8_t get_speed_limiter_on(struct thread_data* tdata);
 uint32_t get_vehicle_speed(struct thread_data* tdata);
 uint32_t get_engine_rpm(struct thread_data* tdata);
-uint32_t get_engine_water_temp(struct thread_data* tdata);
+int8_t 	 get_engine_water_temp(struct thread_data* tdata);
 uint32_t get_oil_level(struct thread_data* tdata);
 uint32_t get_fuel_level(struct thread_data* tdata);
 uint32_t get_odometer_total(struct thread_data* tdata);
 float 	get_battery_voltage(struct thread_data* tdata);
 float 	get_instant_fuel_consumption_per_100_km(struct thread_data* tdata);
 float 	get_instant_fuel_consumption_liter_per_hour(struct thread_data* tdata);
-void get_instant_fuel_consumption_string(struct thread_data* tdata, char* buffer, short* state);
+void 	get_instant_fuel_consumption_string(struct thread_data* tdata, char* buffer, short* state);
 
 #endif

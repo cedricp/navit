@@ -241,6 +241,10 @@ create_can_thread(const char* can_ifname, struct navit* nav)
 	tdata->speed_limiter_on = 0;
 	tdata->cruise_control_on = 0;
 	tdata->engine_rpm = 0;
+	tdata->battery_voltage = 12.25;
+	tdata->oil_level = 6;
+	tdata->fuel_level = 45;
+	tdata->door_lock_status = 0;
 
 	/*
 	 * Set filters to avoid too much network traffic
@@ -329,9 +333,9 @@ uint32_t get_engine_rpm(struct thread_data* tdata){
 	return retval;
 }
 
-uint32_t get_engine_water_temp(struct thread_data* tdata){
+int8_t get_engine_water_temp(struct thread_data* tdata){
 	mutex_lock(tdata);
-	uint32_t retval = tdata->engine_water_temp;
+	int8_t retval = tdata->engine_water_temp;
 	mutex_unlock(tdata);
 	return retval;
 }
