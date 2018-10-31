@@ -600,7 +600,6 @@ static void draw_lines(struct graphics_priv *gr, struct graphics_gc_priv *gc,
                 && !gr->overlay_enabled)) {
         return;
     }
-
     glLineWidth(gc->linewidth * gr->multisample);
 
     set_color(gr, gc);
@@ -1121,7 +1120,7 @@ static int create_framebuffer_texture(struct graphics_priv *gr) {
 
     status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
-        dbg(lvl_error, "Error creating texture framebuffer for overlay");
+        dbg(lvl_error, "Error creating texture framebuffer");
         return -1;
     }
     return 0;
@@ -1134,21 +1133,23 @@ static struct graphics_priv *overlay_new(struct graphics_priv *gr, struct graphi
     this->p.x = p->x;
     this->p.y = p->y;
 
-    // Copy shader locations parameters
+    /*
+     *  Copy shader locations parameters
+     */
     this->mvp_location              = graphics_priv_root->mvp_location;
     this->position_location         = graphics_priv_root->position_location;
     this->texture_position_location = graphics_priv_root->texture_position_location;
     this->color_location            = graphics_priv_root->color_location;
     this->texture_location          = graphics_priv_root->texture_location;
     this->use_texture_location      = graphics_priv_root->use_texture_location;
-    this->multisample = graphics_priv_root->multisample;
-    this->screen_height = h;
-    this->screen_width = w;
-    this->width = w * this->multisample;
-    this->height = h * this->multisample;
-    this->parent = gr;
-    this->overlays = NULL;
-    this->fill_poly = 1;
+    this->multisample 				= graphics_priv_root->multisample;
+    this->screen_height 			= h;
+    this->screen_width 				= w;
+    this->width 					= w * this->multisample;
+    this->height 					= h * this->multisample;
+    this->parent 					= gr;
+    this->overlays 					= NULL;
+    this->fill_poly 				= 1;
 
     if ((w == 0) || (h == 0)) {
         this->overlay_autodisabled = 1;
@@ -1178,7 +1179,10 @@ static gboolean graphics_sdl_idle(void *data) {
     char keybuf[8];
     char keycode;
 
-    // Process SDL events (KEYS + MOUSE)
+    /*
+     * Process all pending events
+     * stop when event queue is empty
+     */
     while(1) {
         ret = SDL_PollEvent(&ev);
 
@@ -1222,12 +1226,12 @@ static gboolean graphics_sdl_idle(void *data) {
                 keybuf[0] = NAVIT_KEY_DOWN;
                 break;
             }
-            case SDLK_PAGEUP: {
-                keybuf[0] = NAVIT_KEY_ZOOM_OUT;
-                break;
-            }
             case SDLK_UP: {
                 keybuf[0] = NAVIT_KEY_UP;
+                break;
+            }
+            case SDLK_PAGEUP: {
+                keybuf[0] = NAVIT_KEY_ZOOM_OUT;
                 break;
             }
             case SDLK_PAGEDOWN: {
@@ -1351,6 +1355,11 @@ static struct graphics_priv *graphics_egl_new(struct navit *nav, struct graphics
         goto error;
     }
 
+    int vsync = 0;
+    if ((attr = attr_search(attrs, NULL, attr_vsync))){
+    		vsync = attr->u.num;
+        }
+
     Uint32 flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN;
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
@@ -1358,7 +1367,7 @@ static struct graphics_priv *graphics_egl_new(struct navit *nav, struct graphics
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
     // I think it's not necessary to sync vblank, update is quite slow
-    SDL_GL_SetSwapInterval(0);
+    SDL_GL_SetSwapInterval(vsync);
 
     gles_platform->eglwindow = SDL_CreateWindow(
                          "Navit",                       	// window title
@@ -1376,7 +1385,7 @@ static struct graphics_priv *graphics_egl_new(struct navit *nav, struct graphics
 
     gles_platform->eglcontext = SDL_GL_CreateContext(gles_platform->eglwindow);
     if (gles_platform->eglcontext == NULL) {
-    	dbg(lvl_error, "EGL context creation failed");
+    	dbg(lvl_error, "EGL context creation failed : %s", SDL_GetError());
 
         goto error;
     }

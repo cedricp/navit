@@ -79,6 +79,7 @@ struct ecumonitor {
     struct graphics_image *img_speed_cruise_control, *img_oil_level;
     struct graphics_image *img_engine_temp_limiter, *img_battery;
     struct graphics_image *img_locked, *img_unlocked;
+    struct graphics_image *img_daylght, *img_hibeam, *img_lobeam;
 
     struct thread_data* can_thread_data;
 };
@@ -179,8 +180,24 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
 	text_bbox(this, string_buffer, bbox);
 	draw_text(this, ggc, string_buffer, 75 - (bbox[3].x - bbox[0].x) / 2 , img_y);
 
-	text_y += 16;
+	text_y += 18;
 	img_y += 20;
+
+	uint8_t speed_control_value = get_limiter_speed_value(this->can_thread_data);
+	if (speed_control_value < 210)
+		sprintf(string_buffer, "%03d", speed_control_value);
+	else
+		sprintf(string_buffer, "---");
+
+	if (get_speed_limiter_on(this->can_thread_data)){
+		draw_text(this, this->white_color, string_buffer, text_x, text_y);
+		draw_image(this, this->osd_item.graphic_bg, this->img_speed_limiter, img_x, img_y);
+	} else if (get_cruise_control_on(this->can_thread_data)){
+		draw_text(this, this->white_color, string_buffer, text_x, text_y);
+		draw_image(this, this->osd_item.graphic_bg, this->img_speed_cruise_control, img_x, img_y);
+	}
+	text_y += 40;
+	img_y += 40;
 	uint32_t oil_level = get_oil_level(this->can_thread_data);
 	if (oil_level > 4)
 		ggc = this->green_color;
@@ -214,24 +231,9 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
 		ggc = this->orange_color;
 	else
 		ggc = this->red_color;
-	sprintf(string_buffer, "%.2f V", battery_voltage);
+	sprintf(string_buffer, "%.2fV", battery_voltage);
 	draw_text(this, ggc, string_buffer, text_x, text_y);
 	draw_image(this, this->osd_item.graphic_bg, this->img_battery, img_x, img_y);
-
-	text_y += 40;
-	img_y += 40;
-	uint8_t speed_control_value = get_limiter_speed_value(this->can_thread_data);
-	if (speed_control_value < 210)
-		sprintf(string_buffer, "%03d Km/h", speed_control_value);
-	else
-		sprintf(string_buffer, "--- Km/h");
-
-	draw_text(this, this->white_color, string_buffer, text_x, text_y);
-
-	if (get_speed_limiter_on(this->can_thread_data))
-		draw_image(this, this->osd_item.graphic_bg, this->img_speed_limiter, img_x, img_y);
-	else if (get_cruise_control_on(this->can_thread_data))
-		draw_image(this, this->osd_item.graphic_bg, this->img_speed_cruise_control, img_x, img_y);
 
 	text_y += 40;
 	img_y += 40;
@@ -243,16 +245,25 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
 	img_y += 40;
 	uint8_t lock_status = get_door_lock_status(this->can_thread_data);
 	if (lock_status){
-		sprintf(string_buffer, "LOCKED");
 		draw_image(this, this->osd_item.graphic_bg, this->img_locked, img_x, img_y);
 	} else {
-		sprintf(string_buffer, "UNLOCKED");
 		draw_image(this, this->osd_item.graphic_bg, this->img_unlocked, img_x, img_y);
 	}
-	draw_text(this, this->white_color, string_buffer, text_x, text_y);
+
+    if (get_daylight(this->can_thread_data)){
+    	draw_image(this, this->osd_item.graphic_bg, this->img_daylght, img_x + 36, img_y);
+    }
+
+    if (get_lowbeamlight(this->can_thread_data)){
+    	draw_image(this, this->osd_item.graphic_bg, this->img_lobeam, img_x + 72, img_y);
+    }
+
+    if (get_hibeamlight(this->can_thread_data)){
+    	draw_image(this, this->osd_item.graphic_bg, this->img_hibeam, img_x + 108, img_y);
+    }
 
 
-    /*
+     /* *
      * End draw
      */
     graphics_draw_mode(this->osd_item.gr, draw_mode_end);
@@ -311,6 +322,9 @@ osd_ecu_monitor_init(struct ecumonitor *this, struct navit *nav)
     char *src_fuel = graphics_icon_path("fuel_level_32_32.png");
     char *src_locked = graphics_icon_path("locked_32_32.png");
     char *src_unlocked = graphics_icon_path("unlocked_32_32.png");
+    char *src_daylight = graphics_icon_path("spotlight_32_32.png");
+    char *src_hibeam = graphics_icon_path("high-beam_32_32.png");
+    char *src_lowbeam = graphics_icon_path("low-beam_32_32.png");
 
     if (src_speed_limiter)
     	this->img_speed_limiter = graphics_image_new(this->osd_item.gr, src_speed_limiter);
@@ -328,6 +342,12 @@ osd_ecu_monitor_init(struct ecumonitor *this, struct navit *nav)
         	this->img_locked = graphics_image_new(this->osd_item.gr, src_locked);
     if (src_unlocked)
         	this->img_unlocked = graphics_image_new(this->osd_item.gr, src_unlocked);
+    if (src_daylight)
+        	this->img_daylght = graphics_image_new(this->osd_item.gr, src_daylight);
+    if (src_hibeam)
+        	this->img_hibeam = graphics_image_new(this->osd_item.gr, src_hibeam);
+    if (src_lowbeam)
+        	this->img_lobeam = graphics_image_new(this->osd_item.gr, src_lowbeam);
 
     osd_ecu_monitor_draw(this, nav, NULL);
     this->callback=callback_new_1(callback_cast(ecu_monitor_idle), this);
@@ -356,7 +376,7 @@ osd_ecu_monitor_new(struct navit *nav, struct osd_methods *meth,
     this->osd_item.rel_w = 150;
     this->osd_item.rel_h = 480;
     this->osd_item.navit = nav;
-    this->osd_item.font_size = 300;
+    this->osd_item.font_size = 370;
     this->osd_item.font_name = "White Rabbit";
     this->osd_item.meth.draw = osd_draw_cast(osd_ecu_monitor_draw);
 

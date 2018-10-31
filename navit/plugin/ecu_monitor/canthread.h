@@ -32,6 +32,7 @@ struct thread_data {
 	uint8_t last_ecm_fuel_accum;
 	short fuel_accum;
 	uint32_t fuel_accum_time;
+	uint8_t  spotlight_on, lowbream_on, hibeam_on;
 
 	struct navit* nav;
 };
@@ -62,5 +63,7 @@ float 	get_battery_voltage(struct thread_data* tdata);
 float 	get_instant_fuel_consumption_per_100_km(struct thread_data* tdata);
 float 	get_instant_fuel_consumption_liter_per_hour(struct thread_data* tdata);
 void 	get_instant_fuel_consumption_string(struct thread_data* tdata, char* buffer, short* state);
-
+uint8_t get_daylight(struct thread_data* tdata);
+uint8_t get_lowbeamlight(struct thread_data* tdata);
+uint8_t get_hibeamlight(struct thread_data* tdata);
 #endif

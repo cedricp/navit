@@ -148,12 +148,15 @@ extract_bcm_general_data(struct thread_data* tdata)
 	uint8_t* frame = cdata->frame.data;
 
 	mutex_lock(tdata);
-	tdata->boot_lock_status = frame[2] & 0b00001000;
-	tdata->door_lock_status = frame[2] & 0b00010000;
-	tdata->left_door_open   = frame[0] & 0b00001000;
-	tdata->right_door_open  = frame[0] & 0b00010000;
-	tdata->boot_open        = frame[0] & 0b10000000;
+	tdata->boot_lock_status = (frame[2] & 0b00001000) > 0;
+	tdata->door_lock_status = (frame[2] & 0b00010000) > 0;
+	tdata->left_door_open   = (frame[0] & 0b00001000) > 0;
+	tdata->right_door_open  = (frame[0] & 0b00010000) > 0;
+	tdata->boot_open        = (frame[0] & 0b10000000) > 0;
 	tdata->external_temperature = frame[4] - 40;
+	tdata->spotlight_on     = (frame[0] & 0b00000100) > 0;
+	tdata->lowbream_on 	    = (frame[0] & 0b00000100) > 0;
+	tdata->hibeam_on		= (frame[1] & 0b00001000) > 0;
 	mutex_unlock(tdata);
 }
 
@@ -472,6 +475,27 @@ uint8_t get_cruise_control_on(struct thread_data* tdata){
 uint8_t get_speed_limiter_on(struct thread_data* tdata){
 	mutex_lock(tdata);
 	uint8_t retval = tdata->speed_limiter_on;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_daylight(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->spotlight_on;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_lowbeamlight(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->lowbream_on;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_hibeamlight(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->hibeam_on;
 	mutex_unlock(tdata);
 	return retval;
 }
