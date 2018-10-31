@@ -943,7 +943,7 @@ static void *get_data(struct graphics_priv *this, const char *type) {
     int i;
 
     if (!strcmp(type, "gtk_widget")) {
-        fprintf(stderr, "GTK gui is not supported with EGL graphics driver\n");
+        dbg(lvl_error, "GTK gui is not supported with EGL graphics driver");
         return NULL;
     }
 
@@ -1121,8 +1121,7 @@ static int create_framebuffer_texture(struct graphics_priv *gr) {
 
     status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
-        printf("Error creating texture framebuffer for overlay\n");
-        printf("Params : %ix%i \n", gr->width, gr->height);
+        dbg(lvl_error, "Error creating texture framebuffer for overlay");
         return -1;
     }
     return 0;
@@ -1162,7 +1161,7 @@ static struct graphics_priv *overlay_new(struct graphics_priv *gr, struct graphi
     gr->overlays = this;
 
     if (create_framebuffer_texture(this) != 0){
-    	printf("graphics_egl: Cannot create overlay\n");
+    	dbg(lvl_error, "graphics_egl: Cannot create overlay");
     	return NULL;
     }
 
@@ -1348,7 +1347,7 @@ static struct graphics_priv *graphics_egl_new(struct navit *nav, struct graphics
     int sdl_status =  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 
     if (sdl_status != 0) {
-        fprintf(stderr, "\nUnable to initialize SDL: %i %s\n", sdl_status, SDL_GetError() );
+        dbg(lvl_error, "Unable to initialize SDL: %i %s", sdl_status, SDL_GetError());
         goto error;
     }
 
@@ -1371,13 +1370,14 @@ static struct graphics_priv *graphics_egl_new(struct navit *nav, struct graphics
                      );
 
     if (gles_platform->eglwindow == NULL) {
-        fprintf(stderr, "\nUnable to initialize SDL window: %s\n", SDL_GetError() );
+        dbg(lvl_error, "Unable to initialize SDL window: %s", SDL_GetError() );
         goto error;
     }
 
     gles_platform->eglcontext = SDL_GL_CreateContext(gles_platform->eglwindow);
     if (gles_platform->eglcontext == NULL) {
-        printf("EGL context creation failed\n");
+    	dbg(lvl_error, "EGL context creation failed");
+
         goto error;
     }
 
