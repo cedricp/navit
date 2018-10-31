@@ -57,6 +57,7 @@ extract_dashboard_data(struct thread_data* tdata)
 	tdata->odometer_total = (frame[0] << 16) | (frame[1] << 8) | frame[2];
 	tdata->oil_level  = (frame[3] & 0b00111100) >> 2;
 	tdata->fuel_level = (frame[4] & 0b11111110) >> 1;
+	tdata->filtered_fuel_level += 0.02 * ((float)tdata->fuel_level - tdata->filtered_fuel_level);
 	mutex_unlock(tdata);
 }
 
@@ -157,6 +158,10 @@ extract_bcm_general_data(struct thread_data* tdata)
 	tdata->spotlight_on     = (frame[0] & 0b00000100) > 0;
 	tdata->lowbream_on 	    = (frame[0] & 0b00000100) > 0;
 	tdata->hibeam_on		= (frame[1] & 0b00001000) > 0;
+	/*
+	 * Very low pass filter to avoid value flicking
+	 */
+	tdata->filtered_external_temperature += 0.001f * ((float)tdata->external_temperature - tdata->filtered_external_temperature);
 	mutex_unlock(tdata);
 }
 
@@ -176,7 +181,7 @@ static void*
 can_thread_function(void* data)
 {
 	int retcode;
-	printf("Thread Start\n");
+	dbg(lvl_info, "Thread Start");
 	for(;;){
 		struct thread_data* tdata = data;
 		retcode =read_frame(tdata->can_data, 500);
@@ -209,19 +214,18 @@ can_thread_function(void* data)
 				break;
 			}
 		} else {
-			printf("Can thread read error : %i\n", retcode);
+			dbg(lvl_error, "Can thread read error : %i", retcode);
 		}
 
 		// Use this to force redraw
 		// graphics_push_event(navit_get_graphics(tdata->nav), "redraw");
-
 
 		if (tdata->running == 0){
 			break;
 		}
 	}
 
-	printf("Thread Stopped\n");
+	dbg(lvl_info, "Thread Stopped");
 	return NULL;
 }
 
@@ -280,29 +284,29 @@ create_can_thread(const char* can_ifname, struct navit* nav)
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
     int err = pthread_mutex_init(&tdata->mutex, &attr);
     if (err != 0){
-    	printf("canthread: cannot create mutex\n");
+    	dbg(lvl_error, "canthread: cannot create mutex");
     	//return NULL;
     }
     pthread_mutexattr_destroy(&attr);
 
     /* Init CAN */
 	if (open_raw(tdata->can_data) != 0){
-		printf("Cannot open CAN socket\n");
+		dbg(lvl_error, "Cannot open CAN socket");
 		//return NULL;
 	}
 
 	if (discover_interface_index(tdata->can_data, can_ifname) != 0){
-		printf("Cannot open interface %s\n", can_ifname);
+		dbg(lvl_error, "Cannot open interface %s", can_ifname);
 		//return NULL;
 	}
 
 	if (set_filters(tdata->can_data) != 0){
 		/* We can continue */
-		printf("Warning : Cannot set filters for interface %s\n", can_ifname);
+		dbg(lvl_error, "Cannot set filters for interface %s", can_ifname);
 	}
 
 	if (bind_to_socket(tdata->can_data, 0x000, 0x000) != 0){
-		printf("Cannot bind interface %s\n", can_ifname);
+		dbg(lvl_error, "Cannot bind interface %s", can_ifname);
 		//return NULL;
 	}
 
@@ -352,7 +356,7 @@ uint32_t get_oil_level(struct thread_data* tdata){
 
 uint32_t get_fuel_level(struct thread_data* tdata){
 	mutex_lock(tdata);
-	uint32_t retval = tdata->fuel_level;
+	uint32_t retval = (uint32_t)tdata->filtered_fuel_level;
 	mutex_unlock(tdata);
 	return retval;
 }
@@ -418,7 +422,7 @@ uint8_t get_battery_charge_status(struct thread_data* tdata){
 
 uint8_t get_external_temperature(struct thread_data* tdata){
 	mutex_lock(tdata);
-	uint8_t retval = tdata->external_temperature;
+	uint8_t retval = (uint8_t)tdata->filtered_external_temperature;
 	mutex_unlock(tdata);
 	return retval;
 }

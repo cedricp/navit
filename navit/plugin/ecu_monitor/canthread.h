@@ -14,6 +14,7 @@ struct thread_data {
 	pthread_mutex_t mutex;
 
 	uint32_t oil_level, fuel_level, odometer_total;
+	float filtered_fuel_level, filtered_external_temperature;
 	/*
 	 * Vehicle_speed is Km/h * 100
 	 */
