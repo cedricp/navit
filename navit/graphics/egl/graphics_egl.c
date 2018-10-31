@@ -71,7 +71,7 @@
 #include <GLES2/gl2.h>
 
 #define DEFAULT_SCREEN_WIDTH 800
-#define DEFAULT_SCREEN_HEIGHT 600
+#define DEFAULT_SCREEN_HEIGHT 480
 
 #define glF(x)  x
 #define glD(x)  x
@@ -115,7 +115,6 @@ struct graphics_priv {
     struct navit *nav;
     struct window window;
     int dirty;		//display needs to be redrawn (draw on root graphics or overlay is done)
-    int force_redraw;	//display needs to be redrawn (draw on root graphics or overlay is done)
     struct graphics_gles_platform *platform;
     struct graphics_opengl_platform_methods *platform_methods;
     uint32_t sdl_event;
@@ -523,8 +522,8 @@ static void draw_array(struct graphics_priv *gr, struct point *p, int count, GLe
     GLf *x;
     x = alloca(sizeof(GLf)*count*2);
     for (i = 0 ; i < count ; i++) {
-        x[i*2]=glF(p[i].x);
-        x[i*2+1]=glF(p[i].y);
+        x[i*2]=glF(p[i].x) * glF(gr->multisample);
+        x[i*2+1]=glF(p[i].y) * glF(gr->multisample);
     }
 
     glVertexAttribPointer (gr->position_location, 2, GL_FLOAT, 0, 0, x );
@@ -602,7 +601,7 @@ static void draw_lines(struct graphics_priv *gr, struct graphics_gc_priv *gc,
         return;
     }
 
-    glLineWidth(gc->linewidth);
+    glLineWidth(gc->linewidth * gr->multisample);
 
     set_color(gr, gc);
     graphics_priv_root->dirty = 1;
@@ -787,8 +786,8 @@ static void draw_image(struct graphics_priv *gr, struct graphics_gc_priv *fg, st
 
 static void draw_drag(struct graphics_priv *gr, struct point *p) {
     if (p) {
-        gr->p.x = p->x;
-        gr->p.y = p->y;
+        gr->p.x = p->x * gr->multisample;
+        gr->p.y = p->y * gr->multisample;
     }
 }
 
@@ -806,8 +805,8 @@ inline void draw_background(struct graphics_priv *gr) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, gr->screen_width, gr->screen_height);
 
-    p_eff.x = gr->p.x / gr->multisample;
-    p_eff.y = gr->p.y / gr->multisample;
+    p_eff.x = gr->p.x;
+    p_eff.y = gr->p.y;
 
     memset(x, 0, 8*sizeof(GLf));
     x[0]+=glF(1);
@@ -838,9 +837,6 @@ inline void draw_overlay(struct graphics_priv *gr) {
     GLf x[8];
 
     get_overlay_pos(gr, &p_eff);
-
-    p_eff.x /=  gr->multisample;
-    p_eff.y /=  gr->multisample;
 
     memset(x, 0, 8*sizeof(GLf));
     x[0]+=glF(1);
@@ -875,33 +871,30 @@ static void draw_mode(struct graphics_priv *gr, enum draw_mode_num mode) {
     struct graphics_priv *overlay = NULL;
     int i;
 
+    /*
+     * Need to setup appropriate orthographic projection matrix
+     */
+    memset(matrix, 0, 16*sizeof(GLfloat));
+    matrix[0]=2.0 / gr->width;
+    matrix[5]=-2.0 / gr->height;
+    matrix[10]=1;
+    matrix[12]=-1;
+    matrix[13]=1;
+    matrix[15]=1;
+    glUniformMatrix4fv(gr->mvp_location, 1, GL_FALSE, matrix);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, gr->framebuffer_name);
+    glViewport(0,0,gr->width,gr->height);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     if (mode == draw_mode_begin) {
         if (gr->parent == NULL) {
             // Full redraw, reset drag position
             gr->p.x = 0;
             gr->p.y = 0;
         }
-
-        /*
-         * Need to setup appropriate orthographic projection matrix
-         */
-        for (i = 0; i < 16 ; i++) {
-            matrix[i] = 0.0;
-        }
-
-        matrix[0]=2.0 / gr->width;
-        matrix[5]=-2.0 / gr->height;
-        matrix[10]=1;
-        matrix[12]=-1;
-        matrix[13]=1;
-        matrix[15]=1;
-        glUniformMatrix4fv(gr->mvp_location, 1, GL_FALSE, matrix);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, gr->framebuffer_name);
-        glViewport(0,0,gr->width,gr->height);
-
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
     if (mode == draw_mode_end && gr->parent == NULL) {
@@ -1002,7 +995,6 @@ static void *get_data(struct graphics_priv *this, const char *type) {
 
 static void overlay_disable(struct graphics_priv *gr, int disable) {
     gr->overlay_enabled = !disable;
-    gr->force_redraw = 1;
     draw_mode(gr, draw_mode_end);
 }
 
@@ -1138,16 +1130,10 @@ static int create_framebuffer_texture(struct graphics_priv *gr) {
 
 static struct graphics_priv *overlay_new(struct graphics_priv *gr, struct graphics_methods *meth, struct point *p,
         int w, int h, int wraparound) {
-    struct graphics_priv *this = graphics_opengl_new_helper(meth);
+    struct graphics_priv *this = graphics_gles_new_helper(meth);
 
     this->p.x = p->x;
     this->p.y = p->y;
-
-    this->width = w;
-    this->height = h;
-    this->parent = gr;
-    this->overlays = NULL;
-    this->fill_poly = 1;
 
     // Copy shader locations parameters
     this->mvp_location              = graphics_priv_root->mvp_location;
@@ -1156,6 +1142,14 @@ static struct graphics_priv *overlay_new(struct graphics_priv *gr, struct graphi
     this->color_location            = graphics_priv_root->color_location;
     this->texture_location          = graphics_priv_root->texture_location;
     this->use_texture_location      = graphics_priv_root->use_texture_location;
+    this->multisample = graphics_priv_root->multisample;
+    this->screen_height = h;
+    this->screen_width = w;
+    this->width = w * this->multisample;
+    this->height = h * this->multisample;
+    this->parent = gr;
+    this->overlays = NULL;
+    this->fill_poly = 1;
 
     if ((w == 0) || (h == 0)) {
         this->overlay_autodisabled = 1;
@@ -1167,8 +1161,10 @@ static struct graphics_priv *overlay_new(struct graphics_priv *gr, struct graphi
     this->next = gr->overlays;
     gr->overlays = this;
 
-    if (create_framebuffer_texture(this) != 0)
+    if (create_framebuffer_texture(this) != 0){
+    	printf("graphics_egl: Cannot create overlay\n");
     	return NULL;
+    }
 
     return this;
 }
@@ -1262,7 +1258,6 @@ static gboolean graphics_sdl_idle(void *data) {
         case SDL_MOUSEBUTTONDOWN: {
             p.x = ev.button.x;
             p.y = ev.button.y;
-            graphics_priv_root->force_redraw = 1;
             callback_list_call_attr_3(gr->cbl, attr_button, GINT_TO_POINTER(1),
             		GINT_TO_POINTER((int)ev.button.button), (void *)&p);
             break;
@@ -1299,7 +1294,7 @@ static gboolean graphics_sdl_idle(void *data) {
 }
 
 
-static struct graphics_priv *graphics_opengl_new(struct navit *nav, struct graphics_methods *meth, struct attr **attrs,
+static struct graphics_priv *graphics_egl_new(struct navit *nav, struct graphics_methods *meth, struct attr **attrs,
         struct callback_list *cbl) {
     struct attr *attr;
     /*
@@ -1326,7 +1321,6 @@ static struct graphics_priv *graphics_opengl_new(struct navit *nav, struct graph
     this->height = DEFAULT_SCREEN_HEIGHT;
     if ((attr = attr_search(attrs, NULL, attr_h)))
         this->height = attr->u.num;
-
 
     this->multisample = 1;
     if ((attr = attr_search(attrs, NULL, attr_multisample))){
@@ -1363,8 +1357,6 @@ static struct graphics_priv *graphics_opengl_new(struct navit *nav, struct graph
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    //SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-    //SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
     // I think it's not necessary to sync vblank, update is quite slow
     SDL_GL_SetSwapInterval(0);

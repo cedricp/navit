@@ -1107,7 +1107,6 @@ static void draw_mode(struct graphics_priv *gr, enum draw_mode_num mode) {
             gr->platform_methods->swap_buffers(gr->platform);
 #else
             glEndList();
-            gr->force_redraw = 1;
             if (!gr->overlay_enabled || gr->force_redraw) {
                 redraw_screen(gr);
             }

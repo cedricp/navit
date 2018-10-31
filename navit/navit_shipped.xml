@@ -35,7 +35,7 @@
 		Center coordinates format: "Long Lat" in decimal degrees (WGS 84).
 		For other formats see http://wiki.navit-project.org/index.php/Coordinate_format.
 		-->
-	<navit center="43.5638 3.9542" zoom="16" pitch="20" autozoom_active="1" follow_cursor="1" tracking="1" orientation="-1" recent_dest="250" drag_bitmap="0" >
+	<navit center="3.9542 43.5638" zoom="16" pitch="20" autozoom_active="1" follow_cursor="1" tracking="1" orientation="-1" recent_dest="250" drag_bitmap="0" >
 		<!-- Use one of gtk_drawing_area, qt_qpainter or sdl.
 		     On windows systems, use win32 -->
 		<graphics type="sdl" w="640" h="480"/>

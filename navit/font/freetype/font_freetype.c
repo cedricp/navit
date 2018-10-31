@@ -305,6 +305,7 @@ static struct font_freetype_text *font_freetype_text_new(char *text, struct font
  */
 static char *fontfamilies[] = {
     "Liberation Sans",
+	"White Rabbit",
     "Arial",
     "NcrBI4nh",
     "luximbi",
@@ -461,7 +462,8 @@ static struct font_freetype_font *font_freetype_font_new(struct graphics_priv *g
         name=g_strdup(fonts[flags ? 1:0]);
     }
 #else
-    name=g_strdup_printf("%s/fonts/%s-%s.ttf",getenv("NAVIT_SHAREDIR"),"LiberationSans",flags ? "Bold":"Regular");
+    //name=g_strdup_printf("%s/fonts/%s-%s.ttf",getenv("NAVIT_SHAREDIR"),"LiberationSans",flags ? "Bold":"Regular");
+    name=g_strdup_printf("%s/fonts/%s.ttf",getenv("NAVIT_SHAREDIR"),"whitrabt");
 #endif
 
 #if USE_CACHING
