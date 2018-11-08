@@ -983,6 +983,10 @@ void graphics_overlay_disable(struct graphics *this_, int disable) {
         this_->meth.overlay_disable(this_->priv, disable);
 }
 
+void graphics_overlay_hide(struct graphics *this_, int hide) {
+    this_->disabled = hide;
+}
+
 int  graphics_is_disabled(struct graphics *this_) {
     return this_->disabled || (this_->parent && this_->parent->disabled);
 }

@@ -2599,6 +2599,7 @@ struct osd_speed_warner {
     struct graphics_gc *grey;
     struct graphics_gc *black;
     struct graphics_gc *white;
+    struct graphics_gc *transp;
     int width;
     int active;
     int d;
@@ -2618,14 +2619,13 @@ static void osd_speed_warner_draw(struct osd_priv_common *opc, struct navit *nav
     struct osd_speed_warner *this = (struct osd_speed_warner *)opc->data;
 
     struct point p,bbox[4];
-    char text[16]="N/A";
+    char text[16]="";
+    int hide = 1;
 
     struct tracking *tracking = NULL;
     struct graphics_gc *osd_color=this->grey;
     struct graphics_image *img = this->img_off;
 
-
-    osd_fill_with_bgcolor(&opc->osd_item);
     p.x=opc->osd_item.w/2-this->d/4;
     p.y=opc->osd_item.h/2-this->d/4;
     p.x=opc->osd_item.w/2;
@@ -2670,6 +2670,7 @@ static void osd_speed_warner_draw(struct osd_priv_common *opc, struct navit *nav
         tracking_get_attr(tracking, attr_position_speed, &speed_attr, NULL);
         tracking_speed = *speed_attr.u.numd;
         if( -1 != tracking_speed && -1 != routespeed ) {
+        	hide = 0;
             char*routespeed_str = format_speed(routespeed,"","value",imperial);
             g_snprintf(text,16,"%s%s",osm_data ? "" : "~",routespeed_str);
             g_free(routespeed_str);
@@ -2706,18 +2707,29 @@ static void osd_speed_warner_draw(struct osd_priv_common *opc, struct navit *nav
         img = this->img_off;
         this->announce_state = eNoWarn;
     }
-    if(this->img_active && this->img_passive && this->img_off) {
-        struct point p;
-        p.x=(opc->osd_item.w-img->width)/2;
-        p.y=(opc->osd_item.h-img->height)/2;
-        graphics_draw_image(opc->osd_item.gr, opc->osd_item.graphic_bg, &p, img);
-    } else if(0==this->bTextOnly) {
-        graphics_draw_circle(opc->osd_item.gr, this->red, &p, this->d-this->width*2 );
+
+    if (!hide){
+		osd_fill_with_bgcolor(&opc->osd_item);
+		if(this->img_active && this->img_passive && this->img_off) {
+			struct point p;
+			p.x=(opc->osd_item.w-img->width)/2;
+			p.y=(opc->osd_item.h-img->height)/2;
+			graphics_draw_image(opc->osd_item.gr, opc->osd_item.graphic_bg, &p, img);
+		} else if(0==this->bTextOnly) {
+			graphics_draw_circle(opc->osd_item.gr, this->red, &p, this->d-this->width*2 );
+		}
+		graphics_get_text_bbox(opc->osd_item.gr, opc->osd_item.font, text, 0x10000, 0, bbox, 0);
+		p.x=(opc->osd_item.w-bbox[2].x)/2;
+		p.y=(opc->osd_item.h+bbox[2].y)/2-bbox[2].y;
+		graphics_draw_text(opc->osd_item.gr, osd_color, NULL, opc->osd_item.font, text, &p, 0x10000, 0);
+
+    } else {
+        struct point p[1];
+        graphics_draw_mode(opc->osd_item.gr, draw_mode_begin);
+        p[0].x=0;
+        p[0].y=0;
+        graphics_draw_rectangle(opc->osd_item.gr, this->transp, p, opc->osd_item.w, opc->osd_item.h);
     }
-    graphics_get_text_bbox(opc->osd_item.gr, opc->osd_item.font, text, 0x10000, 0, bbox, 0);
-    p.x=(opc->osd_item.w-bbox[2].x)/2;
-    p.y=(opc->osd_item.h+bbox[2].y)/2-bbox[2].y;
-    graphics_draw_text(opc->osd_item.gr, osd_color, NULL, opc->osd_item.font, text, &p, 0x10000, 0);
     graphics_draw_mode(opc->osd_item.gr, draw_mode_end);
 }
 
@@ -2750,6 +2762,7 @@ static void osd_speed_warner_init(struct osd_priv_common *opc, struct navit *nav
     struct color grey_color= {0xaaaa,0xaaaa,0xaaaa,0xffff};
     struct color black_color= {0x1111,0x1111,0x1111,0x9999};
     struct color white_color= {0xffff,0xffff,0xffff,0xffff};
+    struct color transp_color= {0,0,0,0};
 
     osd_set_std_graphic(nav, &opc->osd_item, (struct osd_priv *)opc);
     navit_add_callback(nav, callback_new_attr_1(callback_cast(osd_speed_warner_draw), attr_position_coord_geo, opc));
@@ -2807,6 +2820,9 @@ static void osd_speed_warner_init(struct osd_priv_common *opc, struct navit *nav
     this->white=graphics_gc_new(opc->osd_item.gr);
     graphics_gc_set_foreground(this->white, &white_color);
     graphics_gc_set_linewidth(this->white, this->width - 2);
+
+    this->transp=graphics_gc_new(opc->osd_item.gr);
+    graphics_gc_set_foreground(this->transp, &transp_color);
 
     osd_speed_warner_draw(opc, nav, NULL);
 }

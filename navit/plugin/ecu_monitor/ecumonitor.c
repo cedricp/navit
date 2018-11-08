@@ -48,6 +48,7 @@
 #include <navit/event.h>
 #include <navit/command.h>
 #include <navit/config_.h>
+#include <sys/time.h>
 #include "graphics.h"
 #include "color.h"
 #include "osd.h"
@@ -57,6 +58,7 @@
 struct ecumonitor {
     struct navit *nav;
     int status;
+    int visible;
     int device;
     int index;
     char message[255];
@@ -65,7 +67,7 @@ struct ecumonitor {
     struct callback *callback;
     struct osd_item osd_item;
     int width;
-    struct graphics_gc *red_color,*white_color, *green_color, *orange_color, * bg;
+    struct graphics_gc *red_color,*white_color, *green_color, *orange_color, *transp_color, *bg;
     struct callback *click_cb;
     int init_string_index;
 
@@ -85,24 +87,6 @@ struct ecumonitor {
 };
 
 static struct thread_data* g_thread_data = NULL;
-
-/**
- * @brief	Function called when navit is idle. Does the continous reading
- * @param[in]	ecu_monitor	- the ecu_monitor struct containing the state of the plugin
- *
- * @return	nothing
- *
- * This is the main function of this plugin. It is called when navit is idle,
- * and performs the initialization of the obd device if needed, then reads 
- * one char each time it is called, and puts this char in a buffer. When it 
- * reads an EOL character, the buffer is parsed, and the appropriate action is
- * taken. The buffer is then cleared and we start over.
- *
- */
-static void
-ecu_monitor_idle(struct ecumonitor *ecu_monitor)
-{
-}
 
 inline void draw_text(struct ecumonitor *this, struct graphics_gc* gc, const char* text, int x, int y)
 {
@@ -134,38 +118,70 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
     struct point bbox[4];
     short state;
 
-	osd_fill_with_bgcolor(&this->osd_item);
-	/*
-	 * Limiter view
-	 */
+    if (!this->visible){
+    	struct point p[1];
+		graphics_draw_mode(this->osd_item.gr, draw_mode_begin);
+		p[0].x=0;
+		p[0].y=0;
+		graphics_draw_rectangle(this->osd_item.gr, this->transp_color, p, this->osd_item.w, this->osd_item.h);
+    	graphics_push_event(this->osd_item.gr, "redraw");
+    	return;
+    }
 
+	osd_fill_with_bgcolor(&this->osd_item);
 	int text_x = 55;
 	int text_y = 50;
 
 	int img_x = 5;
 	int img_y = 25;
 
+	int millisec;
+	struct tm* tm_info;
+	struct timeval tv;
+
+	gettimeofday(&tv, NULL);
+
+	millisec = lrint(tv.tv_usec/1000.0); // Round to nearest millisec
+	if (millisec>=1000) { // Allow for rounding up to nearest second
+		millisec -=1000;
+		tv.tv_sec++;
+	}
+
+	tm_info = localtime(&tv.tv_sec);
+	strftime(string_buffer, 26, "%H:%M:%S", tm_info);
+
+	text_bbox(this, string_buffer, bbox);
+	draw_text(this, this->white_color, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
+
+	text_y += 30;
+	img_y += 30;
+	strftime(string_buffer, 26, "%d/%m", tm_info);
+	text_bbox(this, string_buffer, bbox);
+	draw_text(this, this->white_color, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
+
+	text_y += 40;
+	img_y += 40;
 	sprintf(string_buffer, "%d C", get_external_temperature(this->can_thread_data));
 	text_bbox(this, string_buffer, bbox);
-	draw_text(this, this->white_color, string_buffer, 75 - (bbox[3].x - bbox[0].x) / 2 , img_y);
+	draw_text(this, this->white_color, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
 
 	text_y += 30;
 	img_y += 30;
 	sprintf(string_buffer, "%06d Km", get_odometer_total(this->can_thread_data));
 	text_bbox(this, string_buffer, bbox);
-	draw_text(this, this->white_color, string_buffer, 75 - (bbox[3].x - bbox[0].x) / 2 , img_y);
+	draw_text(this, this->white_color, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
 
 	text_y += 30;
 	img_y += 30;
 	sprintf(string_buffer, "%03d Km/h", get_vehicle_speed(this->can_thread_data));
 	text_bbox(this, string_buffer, bbox);
-	draw_text(this, this->white_color, string_buffer, 75 - (bbox[3].x - bbox[0].x) / 2 , img_y);
+	draw_text(this, this->white_color, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
 
 	text_y += 30;
 	img_y += 30;
 	sprintf(string_buffer, "%04d RPM", get_engine_rpm(this->can_thread_data));
 	text_bbox(this, string_buffer, bbox);
-	draw_text(this, this->white_color, string_buffer, 75 - (bbox[3].x - bbox[0].x) / 2 , img_y);
+	draw_text(this, this->white_color, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
 
 	text_y += 30;
 	img_y += 30;
@@ -178,7 +194,7 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
 	if (state == 2)
 		ggc = this->red_color;
 	text_bbox(this, string_buffer, bbox);
-	draw_text(this, ggc, string_buffer, 75 - (bbox[3].x - bbox[0].x) / 2 , img_y);
+	draw_text(this, ggc, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
 
 	text_y += 18;
 	img_y += 20;
@@ -267,6 +283,7 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
      * End draw
      */
     graphics_draw_mode(this->osd_item.gr, draw_mode_end);
+    graphics_push_event(this->osd_item.gr, "redraw");
 }
 
 /**
@@ -277,42 +294,29 @@ static void
 osd_ecu_monitor_init(struct ecumonitor *this, struct navit *nav)
 {
 
-    struct color c;
     osd_set_std_graphic(nav, &this->osd_item, (struct osd_priv *)this);
     
+    struct color transp_color= {0,0,0,0};
+    struct color white_color= {65535, 65535, 65535, 65535};
+    struct color red_color= {65535, 0, 0, 65535};
+    struct color blue_color= {0, 65535, 0, 65535};
+    struct color orange_color= {65535, 0x8888, 0, 65535};
+
     // Used when we are receiving real datas from the device
     this->bg = graphics_gc_new(this->osd_item.gr);
     this->white_color = graphics_gc_new(this->osd_item.gr);
     this->red_color = graphics_gc_new(this->osd_item.gr);
     this->orange_color = graphics_gc_new(this->osd_item.gr);
     this->green_color = graphics_gc_new(this->osd_item.gr);
+    this->transp_color = graphics_gc_new(this->osd_item.gr);
 
-    c.r = 65535;
-    c.g = 65535;
-    c.b = 65535;
-    c.a = 65535;
-    graphics_gc_set_foreground(this->white_color, &c);
+    graphics_gc_set_foreground(this->white_color, &white_color);
     graphics_gc_set_linewidth(this->white_color, this->width);
-    c.r = 0xFFFF;
-    c.g = 0x0000;
-    c.b = 0x0000;
-    c.a = 65535;
-    graphics_gc_set_foreground(this->red_color, &c);
+    graphics_gc_set_foreground(this->red_color, &red_color);
     graphics_gc_set_linewidth(this->osd_item.graphic_fg, this->width);
-
-    c.r = 0x0000;
-    c.g = 0xFFFF;
-    c.b = 0x0000;
-    c.a = 65535;
-    graphics_gc_set_foreground(this->green_color, &c);
-
-    c.r = 0xFFFF;
-    c.g = 0x8888;
-    c.b = 0x0000;
-    c.a = 65535;
-    graphics_gc_set_foreground(this->orange_color, &c);
-
-    event_add_timeout(500, 1, callback_new_1(callback_cast(osd_ecu_monitor_draw), this));
+    graphics_gc_set_foreground(this->green_color, &blue_color);
+    graphics_gc_set_foreground(this->orange_color, &orange_color);
+    graphics_gc_set_foreground(this->transp_color, &transp_color);
 
     char *src_speed_limiter = graphics_icon_path("speed_limiter_32_32.png");
     char *src_speed_cruise_control = graphics_icon_path("speed_cruise_control_32_32.png");
@@ -350,8 +354,23 @@ osd_ecu_monitor_init(struct ecumonitor *this, struct navit *nav)
         	this->img_lobeam = graphics_image_new(this->osd_item.gr, src_lowbeam);
 
     osd_ecu_monitor_draw(this, nav, NULL);
-    this->callback=callback_new_1(callback_cast(ecu_monitor_idle), this);
-    this->idle=event_add_idle(125, this->callback);
+    event_add_timeout(500, 1, callback_new_1(callback_cast(osd_ecu_monitor_draw), this));
+}
+
+static void on_osd_click(struct ecumonitor *this, struct navit *nav, int pressed, int button,
+                                   struct point *p) {
+    struct point bp = this->osd_item.p;
+    osd_wrap_point(&bp, nav);
+    if ((p->x < bp.x || p->y < bp.y || p->x > bp.x + this->osd_item.w || p->y > bp.y + this->osd_item.h
+            || !this->osd_item.configured ) && !this->osd_item.pressed)
+        return;
+    if (button != 1)
+        return;
+    if (navit_ignore_button(nav))
+        return;
+    if (!!pressed == !!this->osd_item.pressed)
+        return;
+    this->visible = !this->visible;
 }
 
 /**
@@ -373,18 +392,20 @@ osd_ecu_monitor_new(struct navit *nav, struct osd_methods *meth,
     struct attr *attr;
     this->osd_item.rel_x = 0;
     this->osd_item.rel_y = 0;
-    this->osd_item.rel_w = 150;
+    this->osd_item.rel_w = 170;
     this->osd_item.rel_h = 480;
     this->osd_item.navit = nav;
-    this->osd_item.font_size = 370;
+    this->osd_item.font_size = 380;
     this->osd_item.font_name = "White Rabbit";
     this->osd_item.meth.draw = osd_draw_cast(osd_ecu_monitor_draw);
+    this->visible = 1;
 
     osd_set_std_attr(attrs, &this->osd_item, 2);
     attr = attr_search(attrs, NULL, attr_width);
     this->width=attr ? attr->u.num : 2;
 
     navit_add_callback(nav, callback_new_attr_1(callback_cast(osd_ecu_monitor_init), attr_graphics_ready, this));
+    navit_add_callback(nav, this->click_cb = callback_new_attr_1(callback_cast (on_osd_click), attr_button, this));
 
     this->can_thread_data = create_can_thread("can0", nav);
     g_thread_data = this->can_thread_data;

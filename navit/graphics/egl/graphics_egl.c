@@ -547,9 +547,9 @@ static void draw_image_es(struct graphics_priv *gr, struct point *p,
     GLuint texture;
     memset(x, 0, sizeof(x));
 
-    glGenTextures(1, &texture);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
+//    glGenTextures(1, &texture);
+//    glActiveTexture(GL_TEXTURE0);
+//    glBindTexture(GL_TEXTURE_2D, texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -573,7 +573,7 @@ static void draw_image_es(struct graphics_priv *gr, struct point *p,
     glDisableVertexAttribArray(gr->texture_position_location);
 
     glDisable(GL_BLEND);
-    glDeleteTextures(1, &texture);
+//    glDeleteTextures(1, &texture);
 }
 
 inline void get_overlay_pos(struct graphics_priv *gr, struct point *point_out) {
@@ -1185,7 +1185,6 @@ static gboolean graphics_sdl_idle(void *data) {
      */
     while(1) {
         ret = SDL_PollEvent(&ev);
-
         if(!ret)
             break;
 
