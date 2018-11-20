@@ -172,7 +172,7 @@ Waypoint</text></img>
 		You can find a list of all the available OSDs items here:
 		http://wiki.navit-project.org/index.php/OSD -->
 		<osd enabled="yes" type="compass" x="570" y="0" w="70"  h="70"/>
-		<osd enabled="yes" type="ecu_monitor" background_color="#303040B0"/>
+		<osd enabled="yes" type="ecu_monitor" background_color="#303040B0" canbus="can0"/>
 		<osd enabled="yes" type="speed_cam" x="170" y="160" w="300" h="150" font_size="600" text_color="#2A3845" 
 		idle_color="#FFFFFF00" background_color="#FFFFFF90" announce_on="1" label="ZONE RADAR&#10;${distance}&#10;${speed_limit} km/h"/> 
 		<osd enabled="yes" type="speed_warner" x="275" y="0" w="90" h="90" font_size="500" background_color="#404040FF"/> 

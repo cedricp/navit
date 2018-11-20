@@ -29,8 +29,10 @@
 #define BCM_FRAME			0x060D
 #define ENGINE_TORQUE_FRAME 0x0181
 #define ENGINE_DATA			0x0551
+#define ENGINE_SYSTEM		0x01F9
 #define BRAKE_DATA			0x0354
 #define UPC_DATA			0x0625
+#define CLIM_DATA			0x0374
 
 inline uint64_t timeval_to_millis(struct timeval* tv)
 {
@@ -143,6 +145,17 @@ extract_engine_torque_data(struct thread_data* tdata)
 }
 
 static inline void
+extract_engine_system_data(struct thread_data* tdata)
+{
+	struct candata* cdata = tdata->can_data;
+	uint8_t* frame = cdata->frame.data;
+
+	mutex_lock(tdata);
+	tdata->engine_status = (frame[0] & 0b00110000) >> 4;
+	mutex_unlock(tdata);
+}
+
+static inline void
 extract_bcm_general_data(struct thread_data* tdata)
 {
 	struct candata* cdata = tdata->can_data;
@@ -174,6 +187,19 @@ extract_upc_data(struct thread_data* tdata)
 	mutex_lock(tdata);
 	tdata->battery_voltage = (float)frame[2] * 0.0625;
 	tdata->battery_charge_status = frame[3] & 0b00100000;
+	mutex_unlock(tdata);
+}
+
+static inline void
+extract_clim_data(struct thread_data* tdata)
+{
+	struct candata* cdata = tdata->can_data;
+	uint8_t* frame = cdata->frame.data;
+
+	mutex_lock(tdata);
+	tdata->clim_temp = frame[0] - 40;
+	tdata->clim_ac_on = (frame[1] & 0b00010000) >> 4;
+	tdata->clim_evap_temp = frame[2] - 40;
 	mutex_unlock(tdata);
 }
 
@@ -209,6 +235,12 @@ can_thread_function(void* data)
 				break;
 			case UPC_DATA:
 				extract_upc_data(tdata);
+				break;
+			case CLIM_DATA:
+				extract_clim_data(tdata);
+				break;
+			case ENGINE_SYSTEM:
+				extract_engine_system_data(tdata);
 				break;
 			default:
 				break;
@@ -256,25 +288,39 @@ create_can_thread(const char* can_ifname, struct navit* nav)
 	/*
 	 * Set filters to avoid too much network traffic
 	 */
-	tdata->can_data->numfilters = 5;
+	tdata->can_data->numfilters = 0;
 
-	tdata->can_data->filters[0] = DASHBOARD_FRAME;
-	tdata->can_data->masks[0] 	= CAN11_MASK;
+	tdata->can_data->filters[tdata->can_data->numfilters] 	= DASHBOARD_FRAME;
+	tdata->can_data->masks[tdata->can_data->numfilters] 	= CAN11_MASK;
+	tdata->can_data->numfilters++;
 
-	tdata->can_data->filters[1] = BCM_FRAME;
-	tdata->can_data->masks[1] 	= CAN11_MASK;
+	tdata->can_data->filters[tdata->can_data->numfilters] 	= BCM_FRAME;
+	tdata->can_data->masks[tdata->can_data->numfilters] 	= CAN11_MASK;
+	tdata->can_data->numfilters++;
 
-	tdata->can_data->filters[2] = ENGINE_TORQUE_FRAME;
-	tdata->can_data->masks[2] 	= CAN11_MASK;
+	tdata->can_data->filters[tdata->can_data->numfilters] 	= ENGINE_TORQUE_FRAME;
+	tdata->can_data->masks[tdata->can_data->numfilters] 	= CAN11_MASK;
+	tdata->can_data->numfilters++;
 
-	tdata->can_data->filters[3] = ENGINE_DATA;
-	tdata->can_data->masks[3] 	= CAN11_MASK;
+	tdata->can_data->filters[tdata->can_data->numfilters] 	= ENGINE_DATA;
+	tdata->can_data->masks[tdata->can_data->numfilters] 	= CAN11_MASK;
+	tdata->can_data->numfilters++;
 
-	tdata->can_data->filters[4] = BRAKE_DATA;
-	tdata->can_data->masks[4] 	= CAN11_MASK;
+	tdata->can_data->filters[tdata->can_data->numfilters] 	= BRAKE_DATA;
+	tdata->can_data->masks[tdata->can_data->numfilters] 	= CAN11_MASK;
+	tdata->can_data->numfilters++;
 
-	tdata->can_data->filters[5] = UPC_DATA;
-	tdata->can_data->masks[5] 	= CAN11_MASK;
+	tdata->can_data->filters[tdata->can_data->numfilters] 	= UPC_DATA;
+	tdata->can_data->masks[tdata->can_data->numfilters] 	= CAN11_MASK;
+	tdata->can_data->numfilters++;
+
+	tdata->can_data->filters[tdata->can_data->numfilters] 	= CLIM_DATA;
+	tdata->can_data->masks[tdata->can_data->numfilters]  	= CAN11_MASK;
+	tdata->can_data->numfilters++;
+
+	tdata->can_data->filters[tdata->can_data->numfilters] 	= ENGINE_SYSTEM;
+	tdata->can_data->masks[tdata->can_data->numfilters] 	= CAN11_MASK;
+	tdata->can_data->numfilters++;
 
 	/*
 	 * Create MUTEX
@@ -500,6 +546,13 @@ uint8_t get_lowbeamlight(struct thread_data* tdata){
 uint8_t get_hibeamlight(struct thread_data* tdata){
 	mutex_lock(tdata);
 	uint8_t retval = tdata->hibeam_on;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_engine_status(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->engine_status;
 	mutex_unlock(tdata);
 	return retval;
 }

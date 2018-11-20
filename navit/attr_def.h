@@ -353,6 +353,7 @@ ATTR(log_gpx_desc)
 ATTR_UNUSED
 ATTR_UNUSED
 ATTR(socket)
+ATTR(canbus)
 /* These attributes for house number interpolation are only written by
  * martin-s' (unpublished) GDF converter. */
 ATTR(house_number_left)

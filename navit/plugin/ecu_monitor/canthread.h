@@ -7,6 +7,13 @@
 
 struct navit;
 
+enum ENGINE_STATUS {
+	ENGINE_OFF,
+	ENGINE_STALLED,
+	ENGINE_OK,
+	ENGINE_STARTING
+};
+
 struct thread_data {
 	int running;
 	struct candata* can_data;
@@ -35,6 +42,8 @@ struct thread_data {
 	uint32_t fuel_accum_time;
 	uint8_t  spotlight_on, lowbream_on, hibeam_on;
 
+	int8_t clim_temp, clim_ac_on, clim_evap_temp;
+	int8_t engine_status;
 	struct navit* nav;
 };
 
@@ -67,4 +76,5 @@ void 	get_instant_fuel_consumption_string(struct thread_data* tdata, char* buffe
 uint8_t get_daylight(struct thread_data* tdata);
 uint8_t get_lowbeamlight(struct thread_data* tdata);
 uint8_t get_hibeamlight(struct thread_data* tdata);
+uint8_t get_engine_status(struct thread_data* tdata);
 #endif
