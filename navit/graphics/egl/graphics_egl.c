@@ -146,7 +146,6 @@ static struct   graphics_priv *graphics_gles_new_helper(struct
 
 /*
  * GLES 2 Compatible vertex and fragment shaders
- * Taken from opengl driver
  */
 const char vertex_src [] =
     "                                        \
@@ -544,7 +543,7 @@ static void draw_rectangle_do(struct graphics_priv *gr, struct point *p, int w, 
 static void draw_image_es(struct graphics_priv *gr, struct point *p,
 		int w, int h, unsigned char *data) {
     GLf x[8];
-    GLuint texture;
+//    GLuint texture;
     memset(x, 0, sizeof(x));
 
 //    glGenTextures(1, &texture);
@@ -723,8 +722,7 @@ static void display_text_draw(struct font_freetype_text *text, struct graphics_p
             if (color) {
                 stride = g->w;
                 if (bg) {
-                    glyph =
-                        g_malloc(stride * g->h * 4);
+                    glyph = g_malloc(stride * g->h * 4);
                     gr->freetype_methods.get_glyph(g, glyph, stride * 4, &black, &white, &transparent);
                     struct point p;
                     p.x=(x + g->x) >> 6;
@@ -818,8 +816,6 @@ inline void draw_background(struct graphics_priv *gr) {
     glVertexAttribPointer (gr->texture_position_location, 2, GL_FLOAT, 0, 0, x);
 
     glDisable(GL_BLEND);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, gr->overlay_texture);
 
     draw_rectangle_do(gr, &p_eff, gr->screen_width, gr->screen_height);
@@ -849,8 +845,6 @@ inline void draw_overlay(struct graphics_priv *gr) {
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindTexture(GL_TEXTURE_2D, gr->overlay_texture);
 
     draw_rectangle_do(graphics_priv_root, &p_eff, gr->screen_width, gr->screen_height);

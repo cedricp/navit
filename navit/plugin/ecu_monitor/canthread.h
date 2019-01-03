@@ -77,4 +77,6 @@ uint8_t get_daylight(struct thread_data* tdata);
 uint8_t get_lowbeamlight(struct thread_data* tdata);
 uint8_t get_hibeamlight(struct thread_data* tdata);
 uint8_t get_engine_status(struct thread_data* tdata);
+uint8_t get_hvac_temp(struct thread_data* tdata);
+uint8_t get_hvac_on(struct thread_data* tdata);
 #endif

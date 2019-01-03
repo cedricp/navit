@@ -82,7 +82,7 @@ struct ecumonitor {
     struct graphics_image *img_speed_limiter, *img_fuel_level;
     struct graphics_image *img_speed_cruise_control, *img_oil_level;
     struct graphics_image *img_engine_temp_limiter, *img_battery;
-    struct graphics_image *img_locked, *img_unlocked;
+    struct graphics_image *img_locked, *img_unlocked, *img_aircon;
     struct graphics_image *img_daylght, *img_hibeam, *img_lobeam;
 
     struct thread_data* can_thread_data;
@@ -136,9 +136,11 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
 {
     char string_buffer[32];
     struct point bbox[4];
+	struct point p[2];
     short state;
+    int i;
 
-    if (!this->visible || get_engine_status() == ENGINE_OFF){
+    if (!this->visible || get_engine_status(this->can_thread_data) == ENGINE_OFF){
     	struct point p[1];
 		graphics_draw_mode(this->osd_item.gr, draw_mode_begin);
 		p[0].x=0;
@@ -172,20 +174,26 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
 	text_bbox(this, string_buffer, bbox);
 	draw_text(this, this->white_color, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
 
-	text_y += 30;
-	img_y += 30;
-	strftime(string_buffer, 26, "%d/%m", tm_info);
-	text_bbox(this, string_buffer, bbox);
-	draw_text(this, this->white_color, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
 
-	text_y += 40;
-	img_y += 40;
-	sprintf(string_buffer, "%d C", get_external_temperature(this->can_thread_data));
-	text_bbox(this, string_buffer, bbox);
-	draw_text(this, this->white_color, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
+//	text_y += 30;
+//	img_y += 30;
+//	strftime(string_buffer, 26, "%d/%m", tm_info);
+//	text_bbox(this, string_buffer, bbox);
+//	draw_text(this, this->white_color, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
 
 	text_y += 30;
 	img_y += 30;
+	sprintf(string_buffer, "ext:%d°C", get_external_temperature(this->can_thread_data));
+	text_bbox(this, string_buffer, bbox);
+	draw_text(this, this->white_color, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
+
+	p[0].x = 0;
+	p[0].y = p[1].y = text_y - 10;
+	p[1].x = this->osd_item.w;
+	graphics_draw_lines(this->osd_item.gr, this->white_color, p, 2);
+
+	text_y += 50;
+	img_y += 50;
 	sprintf(string_buffer, "%06d Km", get_odometer_total(this->can_thread_data));
 	text_bbox(this, string_buffer, bbox);
 	draw_text(this, this->white_color, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
@@ -215,8 +223,12 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
 	text_bbox(this, string_buffer, bbox);
 	draw_text(this, ggc, string_buffer, 85 - (bbox[3].x - bbox[0].x) / 2 , img_y);
 
-	text_y += 18;
-	img_y += 20;
+	p[0].y = p[1].y = text_y - 10;
+	p[1].x = this->osd_item.w;
+	graphics_draw_lines(this->osd_item.gr, this->white_color, p, 2);
+
+	text_y += 28;
+	img_y += 30;
 
 	uint8_t speed_control_value = get_limiter_speed_value(this->can_thread_data);
 	if (speed_control_value < 210)
@@ -231,8 +243,8 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
 		draw_text(this, this->white_color, string_buffer, text_x, text_y);
 		draw_image(this, this->osd_item.graphic_bg, this->img_speed_cruise_control, img_x, img_y);
 	}
-	text_y += 40;
-	img_y += 40;
+	text_y += 30;
+	img_y += 30;
 	uint32_t oil_level = get_oil_level(this->can_thread_data);
 	if (oil_level > 4)
 		ggc = this->green_color;
@@ -240,12 +252,15 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
 		ggc = this->orange_color;
 	else
 		ggc = this->red_color;
-	sprintf(string_buffer, "%i / 8", oil_level);
+	sprintf(string_buffer, "--------");
+	for (i = 0; i < oil_level; ++i){
+		string_buffer[i] = 0x7f;
+	}
 	draw_text(this, ggc, string_buffer, text_x, text_y);
 	draw_image(this, this->osd_item.graphic_bg, this->img_oil_level, img_x, img_y);
 
-	text_y += 40;
-	img_y += 40;
+	text_y += 30;
+	img_y += 30;
 	uint32_t fuel_level = get_fuel_level(this->can_thread_data);
 	if (fuel_level > 25)
 		ggc = this->green_color;
@@ -257,8 +272,8 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
 	draw_text(this, ggc, string_buffer, text_x, text_y);
 	draw_image(this, this->osd_item.graphic_bg, this->img_fuel_level, img_x, img_y);
 
-	text_y += 40;
-	img_y += 40;
+	text_y += 30;
+	img_y += 30;
 	float battery_voltage = get_battery_voltage(this->can_thread_data);
 	if (battery_voltage > 12.36f)
 		ggc = this->green_color;
@@ -270,14 +285,32 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
 	draw_text(this, ggc, string_buffer, text_x, text_y);
 	draw_image(this, this->osd_item.graphic_bg, this->img_battery, img_x, img_y);
 
-	text_y += 40;
-	img_y += 40;
-	sprintf(string_buffer, "%i C", get_engine_water_temp(this->can_thread_data));
+	text_y += 30;
+	img_y += 30;
+	sprintf(string_buffer, "%i°C", get_engine_water_temp(this->can_thread_data));
 	draw_text(this, this->white_color, string_buffer, text_x, text_y);
 	draw_image(this, this->osd_item.graphic_bg, this->img_engine_temp_limiter, img_x, img_y);
 
-	text_y += 40;
-	img_y += 40;
+
+	text_y += 50;
+	img_y += 50;
+
+	p[0].y = p[1].y = text_y - 30;
+	p[1].x = this->osd_item.w;
+	graphics_draw_lines(this->osd_item.gr, this->white_color, p, 2);
+
+	sprintf(string_buffer, "%i°C", get_hvac_temp(this->can_thread_data));
+	draw_text(this, this->white_color, string_buffer, text_x, text_y);
+	if (get_hvac_on(this->can_thread_data))
+		draw_image(this, this->osd_item.graphic_bg, this->img_aircon, img_x, img_y);
+
+	text_y = this->osd_item.h - 35;
+	img_y = text_y;
+
+	p[0].y = p[1].y = text_y - 10;
+	p[1].x = this->osd_item.w;
+	graphics_draw_lines(this->osd_item.gr, this->white_color, p, 2);
+
 	uint8_t lock_status = get_door_lock_status(this->can_thread_data);
 	if (lock_status){
 		draw_image(this, this->osd_item.graphic_bg, this->img_locked, img_x, img_y);
@@ -288,9 +321,9 @@ osd_ecu_monitor_draw(struct ecumonitor *this, struct navit *nav,
 	char light_status = get_daylight(this->can_thread_data);
 	if (light_status != this->light_mem){
 		if(light_status)
-			switch_day(this);
-		else
 			switch_night(this);
+		else
+			switch_day(this);
 	}
 	this->light_mem = light_status;
 
@@ -358,6 +391,7 @@ osd_ecu_monitor_init(struct ecumonitor *this, struct navit *nav)
     char *src_daylight = graphics_icon_path("spotlight_32_32.png");
     char *src_hibeam = graphics_icon_path("high-beam_32_32.png");
     char *src_lowbeam = graphics_icon_path("low-beam_32_32.png");
+    char *src_aircon = graphics_icon_path("aircon_32_32.png");
 
     if (src_speed_limiter)
     	this->img_speed_limiter = graphics_image_new(this->osd_item.gr, src_speed_limiter);
@@ -381,6 +415,8 @@ osd_ecu_monitor_init(struct ecumonitor *this, struct navit *nav)
         	this->img_hibeam = graphics_image_new(this->osd_item.gr, src_hibeam);
     if (src_lowbeam)
         	this->img_lobeam = graphics_image_new(this->osd_item.gr, src_lowbeam);
+    if (src_aircon)
+        	this->img_aircon = graphics_image_new(this->osd_item.gr, src_aircon);
 
     osd_ecu_monitor_draw(this, nav, NULL);
 }
@@ -413,7 +449,7 @@ osd_ecu_monitor_new(struct navit *nav, struct osd_methods *meth,
 		printf("Cannot instantiate more than 1 ecu-monitor plug-in\n");
 		return NULL;
 	}
-    struct ecumonitor *this=g_new0(struct ecumonitor, 1);
+    struct ecumonitor *this = g_new0(struct ecumonitor, 1);
     this->nav=nav;
 
     this->init_string_index=0;

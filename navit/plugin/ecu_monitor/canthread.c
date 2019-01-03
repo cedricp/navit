@@ -114,7 +114,7 @@ extract_engine_data(struct thread_data* tdata)
 
 	tdata->fuel_accum_time += delta_time_ms;
 
-	if (tdata->fuel_accum_time > 300){
+	if (tdata->fuel_accum_time > 400){
         float seconds = (float)tdata->fuel_accum_time * 0.001f;
         float mm3 = tdata->fuel_accum * 80.f;
         float mm3perheour = (mm3 / seconds) * 3600.f;
@@ -278,7 +278,7 @@ create_can_thread(const char* can_ifname, struct navit* nav)
 	tdata->odometer_total = tdata->vehicle_speed = 0;
 	tdata->instant_fuel_consumption_liter_per_hour = tdata->instant_fuel_consumption_per_100_km = 0;
 	tdata->speed_limiter_on = 0;
-	tdata->cruise_control_on = 0;
+	tdata->cruise_control_on = 1;
 	tdata->engine_rpm = 0;
 	tdata->battery_voltage = 12.25;
 	tdata->oil_level = 6;
@@ -553,6 +553,20 @@ uint8_t get_hibeamlight(struct thread_data* tdata){
 uint8_t get_engine_status(struct thread_data* tdata){
 	mutex_lock(tdata);
 	uint8_t retval = tdata->engine_status;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_hvac_temp(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->clim_temp;
+	mutex_unlock(tdata);
+	return retval;
+}
+
+uint8_t get_hvac_on(struct thread_data* tdata){
+	mutex_lock(tdata);
+	uint8_t retval = tdata->clim_ac_on;
 	mutex_unlock(tdata);
 	return retval;
 }
